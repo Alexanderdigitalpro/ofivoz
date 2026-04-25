@@ -382,25 +382,34 @@ gritoBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopGrito(); 
 gritoBtn.addEventListener('mouseleave', () => { if (gritoSender === currentUser) stopGrito() });
 
 // Volume Matrix Logic
-function applyVolume(el, vol) {
-  if (vol <= 0) {
-    el.muted = true; // Crucial for iOS Safari!
-    el.volume = 0;
-  } else {
-    el.muted = false;
-    el.volume = vol;
-  }
-}
-
 function adjustVolume(identity) {
   const el = document.getElementById(`audio-${identity}`);
-  if (!el) return;
+  
+  // Attempt to grab the native LiveKit WebRTC track for hardware-level volume control
+  let track = null;
+  if (room && room.remoteParticipants) {
+    const p = room.remoteParticipants.get(identity);
+    if (p) {
+      const pub = Array.from(p.audioTrackPublications.values())[0];
+      if (pub && pub.audioTrack) track = pub.audioTrack;
+    }
+  }
+
+  function applyVol(v) {
+    if (el) {
+      el.muted = (v <= 0);
+      el.volume = v;
+    }
+    if (track) {
+      track.setVolume(v); // LiveKit level hardware override!
+    }
+  }
 
   if (gritoSender) {
     if (identity === gritoSender) {
-      applyVolume(el, 1.0); // Solo la persona que está gritando se escucha al 100%
+      applyVol(1.0); // Solo la persona que está gritando se escucha al 100%
     } else {
-      applyVolume(el, 0.1); // Todos los demás bajan al 10%
+      applyVol(0.1); // Todos los demás bajan al 10%
     }
     return;
   }
@@ -410,16 +419,16 @@ function adjustVolume(identity) {
   if (speakerGroup.length > 0) {
     // The speaker is in a sub-room!
     if (speakerGroup.includes(currentUser)) {
-      applyVolume(el, 1.0);
+      applyVol(1.0);
     } else {
-      applyVolume(el, 0.0); // The speaker is whispering elsewhere. Hardware mute iOS.
+      applyVol(0.0); // Hardware native mute via LiveKit SetVolume!
     }
   } else {
     // The speaker is talking to the general room.
     if (activeWhisperGroup.length > 0) {
-      applyVolume(el, 0.1); // I am in a sub-room, so the general room is 10% environmental noise
+      applyVol(0.1); // I am in a sub-room, so the general room is 10% environmental noise
     } else {
-      applyVolume(el, 1.0); // We are both in the open room
+      applyVol(1.0); // We are both in the open room
     }
   }
 }
