@@ -15,6 +15,35 @@ const audioElements = document.getElementById('audioElements');
 const audioVisualizer = document.querySelector('.audio-visualizer');
 const toastNotification = document.getElementById('toastNotification');
 const toastMessage = document.getElementById('toastMessage');
+const appBody = document.getElementById('app');
+
+// --- Avatar & Color Logic ---
+let selectedAvatarType = 'male';
+let selectedColor = '#a855f7';
+
+// Make sure to expose these to the global window object so HTML onClick can trigger them
+window.selectAvatar = function(type) {
+  selectedAvatarType = type;
+  document.querySelectorAll('.avatar-option').forEach(opt => opt.classList.remove('selected'));
+  const el = document.getElementById(`opt-${type}`);
+  if(el) el.classList.add('selected');
+}
+
+window.selectColor = function(color) {
+  selectedColor = color;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  const el = document.getElementById(`color-${color}`);
+  if(el) el.classList.add('selected');
+}
+
+const avatarSVGs = {
+  male: '<svg class="w-full h-full p-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>',
+  female: '<svg class="w-full h-full p-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>'
+};
+
+// Auto-select defaults
+selectAvatar('male');
+selectColor('#a855f7');
 
 let toastTimeout;
 function showToast(msg) {
@@ -94,14 +123,27 @@ muteBtn.addEventListener('click', async () => {
     await room.startAudio(); // Safety net gesture catch
   } catch(e) {}
   
+  const label = muteBtn.querySelector('.btn-label');
+  const bars = document.querySelectorAll('.visualizer-bar');
+
   if (isMuted) {
-    muteBtn.innerHTML = '<span>🔇 MIC OFF</span>';
-    muteBtn.classList.add('muted');
-    audioVisualizer.classList.remove('visualizer-active');
+    muteBtn.classList.remove('mic-on');
+    muteBtn.classList.add('mic-off');
+    if(label) {
+      label.innerText = 'MIC OFF';
+      label.classList.remove('text-white');
+      label.classList.add('text-gray-500');
+    }
+    bars.forEach(b => b.classList.remove('bar-active'));
   } else {
-    muteBtn.innerHTML = '<span>🎤 MIC ON</span>';
-    muteBtn.classList.remove('muted');
-    audioVisualizer.classList.add('visualizer-active');
+    muteBtn.classList.remove('mic-off');
+    muteBtn.classList.add('mic-on');
+    if(label) {
+      label.innerText = 'EN EL AIRE';
+      label.classList.remove('text-gray-500');
+      label.classList.add('text-white');
+    }
+    bars.forEach(b => b.classList.add('bar-active'));
   }
 });
 
@@ -112,8 +154,22 @@ joinBtn.addEventListener('click', async () => {
   currentUser = val;
   currentUserDisplay.innerText = currentUser;
   
-  loginOverlay.classList.remove('active');
-  workspace.style.display = 'flex';
+  // Apply visual styling
+  const container = document.querySelector('header .w-10');
+  if(container) {
+    container.style.backgroundColor = selectedColor + '20';
+    container.style.borderColor = selectedColor + '40';
+    container.style.color = selectedColor;
+    container.innerHTML = avatarSVGs[selectedAvatarType];
+  }
+
+  // Animation transition
+  loginOverlay.style.opacity = '0';
+  setTimeout(() => {
+    loginOverlay.style.display = 'none';
+    workspace.classList.remove('hidden', 'pointer-events-none');
+    workspace.classList.add('opacity-100', 'translate-y-0');
+  }, 700);
   
   // Create room synchronously to capture User Gesture for Safari Audio
   room = new Room({
@@ -271,10 +327,9 @@ function playRingSound(from) {
   ringSound.play().catch(e => console.log("Sound play err:", e));
   showToast(`📳 ZUMBIDO urgente de: ${from}`);
   
-  const app = document.getElementById('app');
-  if (app) {
-    app.classList.add('shake');
-    setTimeout(() => app.classList.remove('shake'), 600);
+  if (appBody) {
+    appBody.classList.add('shake');
+    setTimeout(() => appBody.classList.remove('shake'), 500);
   }
 }
 
@@ -337,8 +392,12 @@ function startGrito() {
   activeWhisperGroup = [];
   userGroups = {};
   
-  document.body.classList.add('grito-active');
-  gritoBtn.classList.add('active');
+  const micPanel = document.getElementById('micPanel');
+  if(micPanel) micPanel.classList.add('grito-active');
+  
+  const bars = document.querySelectorAll('.visualizer-bar');
+  bars.forEach(b => b.classList.add('bar-active'));
+
   room.localParticipant.setMicrophoneEnabled(true); // Force Unmute Local
   
   updateAllVolumes();
@@ -349,10 +408,17 @@ function stopGrito() {
   safeWsSend({ type: 'grito_stop', from: currentUser });
   
   gritoSender = null;
-  document.body.classList.remove('grito-active');
-  gritoBtn.classList.remove('active');
+  const micPanel = document.getElementById('micPanel');
+  if(micPanel) micPanel.classList.remove('grito-active');
   
   // FIX: Restore the user's manual mute preference after releasing the Grito!
+  if (!isMuted) {
+     // Si no estaba muteado, dejamos las barras. Si estaba muteado, las quitamos.
+  } else {
+      const bars = document.querySelectorAll('.visualizer-bar');
+      bars.forEach(b => b.classList.remove('bar-active'));
+  }
+
   if (room && room.localParticipant) {
     room.localParticipant.setMicrophoneEnabled(!isMuted);
   }
@@ -483,22 +549,27 @@ function renderUsers() {
   generalUserList.innerHTML = '';
   roomsContainer.innerHTML = '';
 
-  // Render General Office Users (people who are NOT in any active sub-room)
+  // Tailwind SVG Icon Factory (simplified)
+  const userIcon = `<svg class="w-6 h-6 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+
+  // Render General Office Users
   usersState.forEach(user => {
     if (!usersInSomeRoom.has(user)) {
-      const li = document.createElement('li');
-      li.className = 'user-item glass-panel';
-      li.innerHTML = `
-        <div class="user-info">
-          <div class="avatar">${user.substring(0, 2).toUpperCase()}</div>
-          <span>${user}</span>
+      const div = document.createElement('div');
+      div.className = 'user-item flex items-center justify-between p-4 glass rounded-[20px] transition-all';
+      div.innerHTML = `
+        <div class="flex items-center gap-4">
+          <div class="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+            ${userIcon}
+          </div>
+          <span class="text-sm font-bold">${user}</span>
         </div>
-        <div class="user-actions">
-          <button type="button" class="icon-btn ring" onclick="triggerRing('${user}')" title="Enviar Zumbido">📳</button>
-          <button type="button" class="icon-btn whisper" onclick="toggleWhisper('${user}')" title="Llamar a Privado">💬</button>
+        <div class="flex gap-2">
+          <button onclick="toggleWhisper('${user}')" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-purple-500/20 transition-colors tooltip relative" title="Invitar a Privado">💬</button>
+          <button onclick="triggerRing('${user}')" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-purple-500/20 transition-colors tooltip relative" title="Zumbido">📳</button>
         </div>
       `;
-      generalUserList.appendChild(li);
+      generalUserList.appendChild(div);
     }
   });
 
@@ -506,37 +577,40 @@ function renderUsers() {
   activeRooms.forEach(roomMem => {
     const isMyRoom = roomMem.includes(currentUser);
     const roomEl = document.createElement('div');
-    roomEl.className = 'room-cluster glass-panel mt-2';
-    roomEl.style.borderColor = isMyRoom ? 'var(--whisper-color)' : 'var(--glass-border)';
+    roomEl.className = `glass rounded-[32px] p-6 border ${isMyRoom ? 'border-purple-500/50 bg-purple-500/[0.05]' : 'border-white/5 bg-white/[0.02]'}`;
     
     // Header
-    const roomTitle = `Sala: ${roomMem.join(', ')}`;
     let actionsHtml = '';
-    
     if (isMyRoom) {
-       actionsHtml = `<button class="btn text-btn" style="color: var(--alert-color); border: 1px solid var(--alert-color); padding: 4px; font-size: 0.8rem;" onclick="leaveSubRoom()">❌ Salir</button>`;
+       actionsHtml = `<button class="w-full py-3 mt-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-[10px] font-black tracking-widest hover:bg-red-500/20 transition-all uppercase" onclick="leaveSubRoom()">❌ Salir de Sala</button>`;
     } else {
        const grpStr = encodeURIComponent(JSON.stringify(roomMem));
-       actionsHtml = `<button class="btn primary-btn" style="padding: 4px; font-size: 0.8rem;" onclick="requestJoin('${grpStr}')">✋ Toc Toc...</button>`;
+       actionsHtml = `<button class="w-full py-3 mt-4 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-400 text-[10px] font-black tracking-widest hover:bg-purple-500/20 transition-all uppercase" onclick="requestJoin('${grpStr}')">✋ Toc Toc</button>`;
     }
 
-    // Members avatars with Zumbido button
     const avatarsHtml = roomMem.map(u => `
-      <div style="display:flex; flex-direction:column; align-items:center;">
-        <div class="avatar" style="width:30px; height:30px; font-size:0.7rem; border:2px solid ${isMyRoom?'var(--whisper-color)':'#fff'};" title="${u}">${u.substring(0, 2).toUpperCase()}</div>
-        <span style="font-size:0.7rem; margin-top:4px;">${u}</span>
-        ${u !== currentUser ? `<button type="button" class="icon-btn ring" style="width:24px; height:24px; font-size:0.7rem; margin-top:2px;" onclick="triggerRing('${u}')" title="Zumbido">📳</button>` : ''}
+      <div class="has-tooltip relative">
+        <div class="w-10 h-10 rounded-full ${isMyRoom?'bg-purple-600':'bg-white/10'} border-2 border-[#08080a] flex items-center justify-center cursor-help">
+          <span class="text-xs font-bold">${u.substring(0,2).toUpperCase()}</span>
+        </div>
+        <div class="tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 glass rounded-xl p-3 text-center border border-white/10 z-50">
+          <p class="text-[10px] font-bold mb-2">${u}</p>
+          ${u !== currentUser ? `<button onclick="triggerRing('${u}')" class="w-full bg-white/10 hover:bg-white/20 text-[9px] py-1 rounded-lg transition-all font-black uppercase">Zumbido</button>` : ''}
+        </div>
       </div>
     `).join('');
 
     roomEl.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <span style="font-size: 0.85rem; font-weight: bold; color: ${isMyRoom?'var(--whisper-color)':'var(--text-secondary)'}">${roomTitle}</span>
-        ${actionsHtml}
+      <div class="flex items-center justify-between">
+        <div class="flex flex-col">
+          <span class="text-xs font-black truncate max-w-[150px]">${roomMem.join(', ')}</span>
+          <span class="text-[10px] text-gray-500">${isMyRoom ? 'Tu Sala' : 'Ocupada'} • ${roomMem.length} miem.</span>
+        </div>
+        <div class="flex -space-x-3 items-center">
+          ${avatarsHtml}
+        </div>
       </div>
-      <div style="display:flex; gap: 8px;">
-        ${avatarsHtml}
-      </div>
+      ${actionsHtml}
     `;
     roomsContainer.appendChild(roomEl);
   });
