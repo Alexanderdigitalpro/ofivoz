@@ -325,7 +325,7 @@ function triggerRing(targetUser) {
 
 function playRingSound(from) {
   ringSound.play().catch(e => console.log("Sound play err:", e));
-  showToast(`📳 ZUMBIDO urgente de: ${from}`);
+  showToast(`⚡️ ZUMBIDO urgente de: ${from}`);
   
   if (appBody) {
     appBody.classList.add('shake');
@@ -563,7 +563,7 @@ function renderUsers() {
       const actions = isMe ? '' : `
         <div class="flex gap-2">
           <button onclick="toggleWhisper('${user}')" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-purple-500/20 transition-colors" title="Invitar a Privado">💬</button>
-          <button onclick="triggerRing('${user}')" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-purple-500/20 transition-colors" title="Zumbido">📳</button>
+          <button onclick="triggerRing('${user}')" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-yellow-500/20 text-yellow-400 transition-colors" title="Zumbido">⚡️</button>
         </div>
       `;
 
@@ -607,7 +607,7 @@ function renderUsers() {
         </div>
         <div class="tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 glass rounded-xl p-3 text-center border border-white/10 z-50">
           <p class="text-[10px] font-bold mb-2">${displayName}</p>
-          ${!isMe ? `<button onclick="triggerRing('${u}')" class="w-full bg-white/10 hover:bg-white/20 text-[9px] py-1 rounded-lg transition-all font-black uppercase">Zumbido</button>` : ''}
+          ${!isMe ? `<button onclick="triggerRing('${u}')" class="w-full bg-white/10 hover:bg-yellow-500/20 text-yellow-400 text-[9px] py-1 rounded-lg transition-all font-black uppercase">⚡️ Zumbido</button>` : ''}
         </div>
       </div>
       `;
