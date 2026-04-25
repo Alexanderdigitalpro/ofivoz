@@ -538,11 +538,11 @@ function renderUsers() {
 
   // UI Tracing helper
   if (activeWhisperGroup.length > 0) {
-    currentUserDisplay.innerText = `${currentUser} (🔒 Sala)`;
-    currentUserDisplay.style.color = 'var(--whisper-color)';
+    currentUserDisplay.innerText = `${currentUser}`;
+    currentUserDisplay.innerHTML += `<br><span class="text-[9px] text-purple-400">🔒 Sala Privada</span>`;
   } else {
-    currentUserDisplay.innerText = currentUser + " (Oficina General)";
-    currentUserDisplay.style.color = '';
+    currentUserDisplay.innerText = currentUserDisplay.innerText = `${currentUser}`;
+    currentUserDisplay.innerHTML += `<br><span class="text-[9px] text-gray-500">Oficina General</span>`;
   }
 
   // Clear DOM
@@ -553,21 +553,30 @@ function renderUsers() {
   const userIcon = `<svg class="w-6 h-6 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
 
   // Render General Office Users
-  usersState.forEach(user => {
+  const allUsers = [currentUser, ...usersState];
+  
+  allUsers.forEach(user => {
     if (!usersInSomeRoom.has(user)) {
+      const isMe = user === currentUser;
+      const displayName = isMe ? 'Yo' : user;
+      
+      const actions = isMe ? '' : `
+        <div class="flex gap-2">
+          <button onclick="toggleWhisper('${user}')" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-purple-500/20 transition-colors" title="Invitar a Privado">💬</button>
+          <button onclick="triggerRing('${user}')" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-purple-500/20 transition-colors" title="Zumbido">📳</button>
+        </div>
+      `;
+
       const div = document.createElement('div');
-      div.className = 'user-item flex items-center justify-between p-4 glass rounded-[20px] transition-all';
+      div.className = `user-item flex items-center justify-between p-4 glass rounded-[20px] transition-all ${isMe ? 'border border-purple-500/30 bg-purple-500/5' : ''}`;
       div.innerHTML = `
         <div class="flex items-center gap-4">
-          <div class="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+          <div class="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center ${isMe ? 'text-purple-400' : ''}">
             ${userIcon}
           </div>
-          <span class="text-sm font-bold">${user}</span>
+          <span class="text-sm font-bold ${isMe ? 'text-purple-400' : ''}">${displayName}</span>
         </div>
-        <div class="flex gap-2">
-          <button onclick="toggleWhisper('${user}')" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-purple-500/20 transition-colors tooltip relative" title="Invitar a Privado">💬</button>
-          <button onclick="triggerRing('${user}')" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-purple-500/20 transition-colors tooltip relative" title="Zumbido">📳</button>
-        </div>
+        ${actions}
       `;
       generalUserList.appendChild(div);
     }
@@ -588,17 +597,21 @@ function renderUsers() {
        actionsHtml = `<button class="w-full py-3 mt-4 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-400 text-[10px] font-black tracking-widest hover:bg-purple-500/20 transition-all uppercase" onclick="requestJoin('${grpStr}')">✋ Toc Toc</button>`;
     }
 
-    const avatarsHtml = roomMem.map(u => `
+    const avatarsHtml = roomMem.map(u => {
+      const isMe = u === currentUser;
+      const displayName = isMe ? 'Yo' : u;
+      return `
       <div class="has-tooltip relative">
-        <div class="w-10 h-10 rounded-full ${isMyRoom?'bg-purple-600':'bg-white/10'} border-2 border-[#08080a] flex items-center justify-center cursor-help">
-          <span class="text-xs font-bold">${u.substring(0,2).toUpperCase()}</span>
+        <div class="w-10 h-10 rounded-full ${isMyRoom?'bg-purple-600':'bg-white/10'} border-2 border-[#08080a] flex items-center justify-center cursor-help ${isMe ? 'ring-2 ring-purple-400 ring-offset-2 ring-offset-[#08080a]' : ''}">
+          <span class="text-xs font-bold">${displayName.substring(0,2).toUpperCase()}</span>
         </div>
         <div class="tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 glass rounded-xl p-3 text-center border border-white/10 z-50">
-          <p class="text-[10px] font-bold mb-2">${u}</p>
-          ${u !== currentUser ? `<button onclick="triggerRing('${u}')" class="w-full bg-white/10 hover:bg-white/20 text-[9px] py-1 rounded-lg transition-all font-black uppercase">Zumbido</button>` : ''}
+          <p class="text-[10px] font-bold mb-2">${displayName}</p>
+          ${!isMe ? `<button onclick="triggerRing('${u}')" class="w-full bg-white/10 hover:bg-white/20 text-[9px] py-1 rounded-lg transition-all font-black uppercase">Zumbido</button>` : ''}
         </div>
       </div>
-    `).join('');
+      `;
+    }).join('');
 
     roomEl.innerHTML = `
       <div class="flex items-center justify-between">
