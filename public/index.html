@@ -1,105 +1,262 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ofivoz</title>
-  <link rel="stylesheet" href="index.css">
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <title>Ofivoz | Control de Voz en Tiempo Real</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #08080a;
+      --glass: rgba(255, 255, 255, 0.03);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --whisper-color: #a855f7;
+      --alert-color: #ef4444;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--bg-dark);
+      color: white;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .glass {
+      background: var(--glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+    }
+    
+    .glass-panel {
+      background: var(--glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+    }
+
+    .mic-btn {
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .mic-on {
+      background: linear-gradient(135deg, #ef4444 0%, #7f1d1d 100%);
+      box-shadow: 0 0 40px rgba(239, 68, 68, 0.4);
+      transform: scale(1.05);
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+
+    .mic-off {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .grito-active {
+      animation: alert-flash 0.5s infinite alternate;
+    }
+
+    @keyframes alert-flash {
+      from { background-color: rgba(239, 68, 68, 0.1); }
+      to { background-color: rgba(239, 68, 68, 0.3); }
+    }
+
+    .visualizer-bar {
+      transition: height 0.1s ease;
+    }
+
+    .bar-active {
+      animation: bar-dance 0.6s infinite alternate;
+    }
+
+    @keyframes bar-dance {
+      0% { height: 10%; }
+      50% { height: 60%; }
+      100% { height: 90%; }
+    }
+
+    .shake {
+      animation: buzz 0.5s cubic-bezier(.36,.07,.19,.97) both;
+      transform: translate3d(0, 0, 0);
+    }
+
+    @keyframes buzz {
+      10%, 90% { transform: translate3d(-1px, 0, 0) rotate(-1deg); }
+      20%, 80% { transform: translate3d(2px, 0, 0) rotate(1deg); }
+      30%, 50%, 70% { transform: translate3d(-4px, 0, 0) rotate(-1deg); }
+      40%, 60% { transform: translate3d(4px, 0, 0) rotate(1deg); }
+    }
+
+    .avatar-option {
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .avatar-option.selected {
+      border-color: #a855f7;
+      background: rgba(168, 85, 247, 0.2);
+      transform: scale(1.05);
+    }
+
+    .color-swatch.selected {
+      outline: 2px solid white;
+      outline-offset: 2px;
+    }
+
+    .tooltip {
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+    .has-tooltip:hover .tooltip {
+      visibility: visible;
+      opacity: 1;
+    }
+    
+    .hidden { display: none !important; }
+  </style>
 </head>
-<body>
-  
-  <div class="app-container" id="app">
-    <!-- Login Overlay -->
-    <div class="login-overlay active" id="loginOverlay">
-      <div class="login-box glass-panel">
-        <h1>Welcome to<br><span class="accent-text">Ofivoz</span></h1>
-        <p>Tu oficina remota sin fricciones.</p>
-        <div class="input-group">
-          <input type="text" id="usernameInput" placeholder="Enter your name" autocomplete="off" />
-        </div>
-        <button id="joinBtn" class="btn primary-btn">Enter Office</button>
+<body id="app" class="flex flex-col p-4 md:p-8 h-screen w-screen bg-[#08080a]">
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginOverlay" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#08080a] p-6 transition-all duration-700">
+    <div class="glass rounded-[32px] p-8 w-full max-w-lg text-center border-white/10 shadow-2xl overflow-y-auto max-h-full">
+      <h1 class="text-5xl font-black mb-2 tracking-tighter italic">OFI<span class="text-purple-500">VOZ</span></h1>
+      <p class="text-gray-400 mb-6 font-light italic">Tu oficina remota sin fricciones.</p>
+      
+      <div class="space-y-6">
+        <input type="text" id="usernameInput" placeholder="Tu nombre..." class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:border-purple-500 transition-all text-center text-xl text-white">
+        
+        <button id="joinBtn" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-5 rounded-2xl transition-all active:scale-95 shadow-lg shadow-purple-500/20">
+          Entrar a la Oficina
+        </button>
       </div>
     </div>
+  </div>
 
-    <!-- Main Workspace -->
-    <div class="workspace" id="workspace" style="display: none;">
-      <header class="header glass-panel">
-        <div class="status-indicator">
-          <div class="pulse-dot"></div>
-          <span>Connected to Live Room</span>
+  <!-- MAIN APP CONTAINER -->
+  <div id="workspace" class="flex flex-col gap-6 h-full opacity-0 translate-y-4 transition-all duration-700 hidden">
+    
+    <!-- TOP BAR -->
+    <header class="flex items-center justify-between px-8 py-5 glass rounded-3xl shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]"></div>
+        <span class="text-[10px] font-black tracking-[0.2em] uppercase text-gray-400">En Linea</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="text-right hidden sm:block">
+          <p id="currentUserDisplay" class="font-bold text-sm leading-none">---</p>
         </div>
-        <h2 id="currentUserDisplay"></h2>
-      </header>
+        <div class="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg border border-white/20 bg-purple-500/20 text-purple-400 font-black">
+          Yo
+        </div>
+      </div>
+    </header>
 
-      <div class="main-content">
-        <!-- Small Corner Broadcast Button -->
-        <button id="gritoBtn" class="btn grito-small" title="Mantén presionado para hablar a todos">
-          ⚠️ ALERTA (Grito)
-        </button>
+    <div class="flex-1 flex flex-col md:flex-row gap-6 overflow-hidden min-h-0">
+      
+      <!-- LEFT: ROOMS & USERS -->
+      <aside class="flex-1 flex flex-col gap-6 overflow-y-auto pr-2 pb-8">
         
-        <div class="presence-panel glass-panel">
-          <h3>👥 Oficina General</h3>
-          <ul id="generalUserList" class="user-list">
-            <!-- Users not in any sub-room -->
-          </ul>
-
-          <h3 class="mt-3" style="color: var(--whisper-color);">🔒 Salas Activas</h3>
-          <div id="roomsContainer" class="rooms-container">
-            <!-- Dynamic Sub-rooms populated here -->
+        <!-- GENERAL AREA -->
+        <div class="glass rounded-[32px] p-6 lg:p-8">
+          <div class="flex items-center justify-between mb-8">
+            <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"></path></svg>
+              Oficina General
+            </h3>
+          </div>
+          <div id="generalUserList" class="grid grid-cols-1 gap-3">
+            <!-- Dynamic users list -->
           </div>
         </div>
-        
-        <!-- Toast Notification Panel -->
-        <div id="toastNotification" class="glass-panel hidden" style="position: absolute; bottom: 20px; right: 20px; border-color: var(--whisper-color); z-index: 1000; animation: slideUp 0.3s ease;">
-          <h4 style="color: var(--text-primary); font-size: 1rem; margin-bottom: 4px;">Nueva Sub-sala 💬</h4>
-          <p id="toastMessage" style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">Mensaje</p>
-        </div>
-        
-        <div class="controls-panel glass-panel">
-          <div class="audio-visualizer">
-            <div class="bar"></div>
-            <div class="bar"></div>
-            <div class="bar"></div>
-            <div class="bar"></div>
-            <div class="bar"></div>
+
+        <!-- WHISPERS / PRIVATE ROOMS -->
+        <div class="flex-1 min-h-[200px]">
+          <h3 class="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-4 ml-4">Salas Activas</h3>
+          <div id="roomsContainer" class="space-y-4">
+            <!-- Dynamic sub rooms -->
           </div>
-          
-          <button id="muteBtn" class="huge-mute muted">
-            <span>🔇 MIC OFF</span>
+        </div>
+      </aside>
+
+      <!-- RIGHT: AUDIO CONTROL -->
+      <aside class="w-full md:w-96 flex flex-col gap-6 shrink-0 pb-8 overflow-y-auto">
+        
+        <!-- VISUALIZER & MIC -->
+        <div id="micPanel" class="glass rounded-[40px] flex-1 flex flex-col items-center justify-center p-8 relative overflow-hidden min-h-[300px]">
+          <div class="absolute inset-0 bg-gradient-to-t from-purple-500/5 to-transparent pointer-events-none"></div>
+
+          <div class="audio-visualizer flex items-end gap-1.5 h-16 mb-16" id="visualizer">
+            <div class="visualizer-bar w-2 rounded-full bg-purple-400 h-[10%]"></div>
+            <div class="visualizer-bar w-2 rounded-full bg-purple-500 h-[20%]"></div>
+            <div class="visualizer-bar w-2 rounded-full bg-white h-[40%]"></div>
+            <div class="visualizer-bar w-2 rounded-full bg-purple-500 h-[20%]"></div>
+            <div class="visualizer-bar w-2 rounded-full bg-purple-400 h-[10%]"></div>
+          </div>
+
+          <!-- FIXED MIC ICON -->
+          <button id="muteBtn" class="mic-btn w-40 h-40 md:w-44 md:h-44 rounded-full mic-off flex flex-col items-center justify-center gap-2 group relative z-10 border-2 border-white/10">
+            <svg class="w-14 h-14 transition-transform group-active:scale-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="23"></line>
+              <line x1="8" y1="23" x2="16" y2="23"></line>
+            </svg>
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 btn-label">MIC OFF</span>
           </button>
         </div>
-      </div>
 
-      <!-- Whisper Target Selection Modal (Old, can keep) -->
-      <div id="whisperModal" class="whisper-modal hidden">
-        <div class="glass-panel text-center">
-          <h3>Select Whisper Targets</h3>
-          <div id="whisperTargets" class="checkbox-list"></div>
-          <button id="startWhisperBtn" class="btn primary-btn mt-3">Start Whisper</button>
-          <button id="cancelWhisperBtn" class="btn text-btn mt-2">Cancel</button>
-        </div>
-      </div>
-
-      <!-- Join Request Modal -->
-      <div id="joinModal" class="whisper-modal hidden">
-        <div class="glass-panel text-center">
-          <h3 style="color: var(--text-primary); font-size: 1.5rem;">🚪 Toc Toc...</h3>
-          <p id="joinModalText" style="margin-top: 10px; font-size: 1.1rem;"></p>
-          <div style="display:flex; gap:10px; justify-content:center; margin-top:24px;">
-            <button id="acceptJoinBtn" class="btn primary-btn" style="background:#22c55e; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);">Aceptar</button>
-            <button id="rejectJoinBtn" class="btn text-btn">Ignorar</button>
+        <!-- FIXED GRITO BUTTON -->
+        <button 
+          id="gritoBtn"
+          class="glass rounded-[32px] p-8 flex items-center justify-between group active:scale-[0.98] transition-all hover:bg-red-500/5 border border-red-500/20 cursor-pointer"
+        >
+          <div class="text-left">
+            <span class="block text-[10px] font-black text-red-500 uppercase tracking-[0.3em] mb-1">Override Global</span>
+            <span class="text-2xl font-black italic tracking-tighter">GRITO</span>
           </div>
-        </div>
+          <div class="w-16 h-16 bg-red-600 rounded-[24px] flex items-center justify-center shadow-2xl shadow-red-600/40 group-hover:rotate-6 transition-transform">
+            <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            </svg>
+          </div>
+        </button>
+
+      </aside>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastNotification" class="fixed bottom-6 right-6 z-[100] hidden transition-all">
+    <div class="glass rounded-xl p-4 border-l-4 border-l-purple-500 shadow-xl flex flex-col gap-1">
+      <h4 class="text-sm font-bold text-white mb-0">Sistema</h4>
+      <p id="toastMessage" class="text-xs text-gray-400 font-medium">Notificación general</p>
+    </div>
+  </div>
+
+  <!-- JOIN MODAL -->
+  <div id="joinModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm hidden transition-all">
+    <div class="glass rounded-[32px] p-8 max-w-sm text-center border-purple-500/30">
+      <div class="w-16 h-16 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center mx-auto mb-4 border border-purple-500/50">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+      </div>
+      <h3 class="text-xl font-bold mb-2">🚪 Toc Toc...</h3>
+      <p id="joinModalText" class="text-sm text-gray-400 mb-6">Alguien quiere entrar</p>
+      
+      <div class="flex gap-3">
+        <button id="acceptJoinBtn" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl transition-all text-sm">Permitir</button>
+        <button id="rejectJoinBtn" class="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl transition-all text-sm">Ignorar</button>
       </div>
     </div>
   </div>
 
   <audio id="ringSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
-
-  <!-- Audio elements containers for LiveKit -->
   <div id="audioElements" style="visibility:hidden; height:0; width:0; overflow:hidden;"></div>
 
-  <script type="module" src="renderer.js?v=19"></script>
+  <script type="module" src="renderer.js?v=20"></script>
 </body>
 </html>
