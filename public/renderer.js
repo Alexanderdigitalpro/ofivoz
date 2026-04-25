@@ -426,7 +426,7 @@ function adjustVolume(identity) {
   } else {
     // The speaker is talking to the general room.
     if (activeWhisperGroup.length > 0) {
-      applyVol(0.1); // I am in a sub-room, so the general room is 10% environmental noise
+      applyVol(0.0); // Aislamiento Total: 0% en vez del 10% de sonido ambiental
     } else {
       applyVol(1.0); // We are both in the open room
     }
