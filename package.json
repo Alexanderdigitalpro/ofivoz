@@ -1,0 +1,22 @@
+{
+  "name": "ofivoz",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "livekit-client": "^2.18.6",
+    "livekit-server-sdk": "^2.15.1",
+    "ws": "^8.20.0"
+  }
+}
