@@ -187,6 +187,13 @@ joinBtn.addEventListener('click', async () => {
   }
 });
 
+// Allow Enter key to join
+usernameInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    joinBtn.click();
+  }
+});
+
 // 2. WebSocket Signaling (Timbre, Grito overriding)
 // Safe WS send
 function safeWsSend(obj) {
