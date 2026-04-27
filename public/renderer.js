@@ -1,4 +1,4 @@
-import { Room, RoomEvent, Track } from 'https://esm.sh/livekit-client';
+import { Room, RoomEvent, Track, ParticipantEvent } from 'https://esm.sh/livekit-client';
 
 // DOM Elements
 const loginOverlay = document.getElementById('loginOverlay');
@@ -18,7 +18,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v26';
+const LOCAL_VERSION = 'v27';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -252,7 +252,9 @@ async function connectSignaling() {
       gritoSender = data.from;
       // Destruir todas las subsalas privadas inmediatamente
       activeWhisperGroup = [];
-      userGroups = {}; 
+      if (room && room.localParticipant) {
+          room.localParticipant.setMetadata(JSON.stringify([]));
+      }
       document.body.classList.add('grito-active');
       updateAllVolumes();
       renderUsers();
@@ -350,6 +352,21 @@ async function connectLiveKit() {
   
   // Visualizer FX
   audioVisualizer.classList.add('visualizer-active');
+
+  // Handle metadata changes for room sync
+  const onMetadataChanged = () => {
+    updateAllVolumes();
+    renderUsers();
+  };
+
+  room.on(RoomEvent.ParticipantMetadataChanged, onMetadataChanged);
+  room.on(RoomEvent.ParticipantConnected, (p) => {
+    p.on(ParticipantEvent.MetadataChanged, onMetadataChanged);
+    renderUsers();
+  });
+  room.on(RoomEvent.ParticipantDisconnected, () => {
+    renderUsers();
+  });
 }
 
 // 4. Mode Functions
@@ -385,8 +402,9 @@ function toggleWhisper(targetUser) {
       activeWhisperGroup = [];
     }
     
-    userGroups[currentUser] = activeWhisperGroup;
-    safeWsSend({ type: 'whisper_sync', from: currentUser, group: activeWhisperGroup });
+    if (room && room.localParticipant) {
+        room.localParticipant.setMetadata(JSON.stringify(activeWhisperGroup));
+    }
     updateAllVolumes();
     renderUsers();
   } catch (err) {
@@ -410,8 +428,9 @@ window.requestJoin = requestJoin;
 window.leaveSubRoom = function() {
   try {
     activeWhisperGroup = [];
-    userGroups[currentUser] = [];
-    safeWsSend({ type: 'whisper_sync', from: currentUser, group: activeWhisperGroup });
+    if (room && room.localParticipant) {
+        room.localParticipant.setMetadata(JSON.stringify([]));
+    }
     updateAllVolumes();
     renderUsers();
   } catch (err) {
@@ -425,7 +444,9 @@ function startGrito() {
   
   gritoSender = currentUser;
   activeWhisperGroup = [];
-  userGroups = {};
+  if (room && room.localParticipant) {
+      room.localParticipant.setMetadata(JSON.stringify([]));
+  }
   
   const micPanel = document.getElementById('micPanel');
   if(micPanel) micPanel.classList.add('grito-active');
@@ -486,13 +507,22 @@ gritoBtn.addEventListener('mouseleave', () => { if (gritoSender === currentUser)
 function adjustVolume(identity) {
   const el = document.getElementById(`audio-${identity}`);
   
-  // Attempt to grab the native LiveKit WebRTC track for hardware-level volume control
   let track = null;
-  if (room && room.remoteParticipants) {
-    const p = room.remoteParticipants.get(identity);
+  let speakerGroup = [];
+
+  if (room) {
+    const p = room.remoteParticipants.get(identity) || room.localParticipant;
     if (p) {
+      // Hardware track
       const pub = Array.from(p.audioTrackPublications.values())[0];
       if (pub && pub.audioTrack) track = pub.audioTrack;
+      
+      // Get room state from metadata (SOURCE OF TRUTH)
+      if (p.metadata) {
+          try {
+              speakerGroup = JSON.parse(p.metadata);
+          } catch(e) {}
+      }
     }
   }
 
@@ -501,35 +531,31 @@ function adjustVolume(identity) {
       el.muted = (v <= 0);
       el.volume = v;
     }
-    if (track) {
-      track.setVolume(v); // LiveKit level hardware override!
+    if (track && track.setVolume) {
+      track.setVolume(v);
     }
   }
 
   if (gritoSender) {
     if (identity === gritoSender) {
-      applyVol(1.0); // Solo la persona que está gritando se escucha al 100%
+      applyVol(1.0);
     } else {
-      applyVol(0.1); // Todos los demás bajan al 10%
+      applyVol(0.1);
     }
     return;
   }
   
-  const speakerGroup = userGroups[identity] || [];
-  
-  if (speakerGroup.length > 0) {
-    // The speaker is in a sub-room!
+  if (speakerGroup && speakerGroup.length > 0) {
     if (speakerGroup.includes(currentUser)) {
       applyVol(1.0);
     } else {
-      applyVol(0.0); // Hardware native mute via LiveKit SetVolume!
+      applyVol(0.0);
     }
   } else {
-    // The speaker is talking to the general room.
     if (activeWhisperGroup.length > 0) {
-      applyVol(0.0); // Aislamiento Total: 0% en vez del 10% de sonido ambiental
+      applyVol(0.0);
     } else {
-      applyVol(1.0); // We are both in the open room
+      applyVol(1.0);
     }
   }
 }
@@ -552,19 +578,29 @@ function updateAllVolumes() {
 
 // Rendering UI
 function renderUsers() {
-  // Aggregate all unique sub-rooms
-  const myGrp = activeWhisperGroup.length > 0 ? activeWhisperGroup : [currentUser];
-  const userIntentions = { [currentUser]: myGrp };
+  const userIntentions = {};
   
-  usersState.forEach(u => {
-    userIntentions[u] = userGroups[u] && userGroups[u].length > 0 ? userGroups[u] : [u];
-  });
+  if (room) {
+    // Collect everyone currently in the audio session
+    const allParticipants = [room.localParticipant, ...Array.from(room.remoteParticipants.values())];
+    
+    allParticipants.forEach(p => {
+        let grp = [p.identity];
+        if (p.metadata) {
+            try {
+                const parsed = JSON.parse(p.metadata);
+                if (Array.isArray(parsed) && parsed.length > 0) grp = parsed;
+            } catch(e) {}
+        }
+        userIntentions[p.identity] = grp;
+    });
+  }
 
   const roomsMap = {};
   Object.values(userIntentions).forEach(grp => {
-    if (grp.length > 1) { // It's a sub-room!
+    if (grp.length > 1) {
       const key = [...grp].sort().join(',');
-      roomsMap[key] = [...new Set(grp)]; // unique members
+      roomsMap[key] = [...new Set(grp)];
     }
   });
   

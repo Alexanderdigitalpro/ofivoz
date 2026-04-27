@@ -11,7 +11,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const CURRENT_VERSION = 'v26'; // Auto-update to v26
+const CURRENT_VERSION = 'v27'; // Auto-update to v27
 
 app.use(cors());
 app.use(express.json());
@@ -31,7 +31,7 @@ app.post('/getToken', async (req, res) => {
   const at = new AccessToken(livekitApiKey, livekitApiSecret, {
     identity: participantName,
   });
-  at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true });
+  at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, canUpdateOwnMetadata: true });
 
   const tokenStr = await at.toJwt();
   res.json({ token: tokenStr, livekitUrl: livekitHost });
