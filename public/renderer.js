@@ -18,7 +18,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v29';
+const LOCAL_VERSION = 'v30';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -533,12 +533,23 @@ function adjustVolume(identity) {
   }
 
   function applyVol(v) {
-    if (el) {
-      el.muted = (v <= 0);
-      el.volume = v;
-    }
-    if (track && track.setVolume) {
-      track.setVolume(v);
+    if (track) {
+      // 1. Hardware WebRTC level
+      if (track.setVolume) track.setVolume(v);
+      
+      // 2. DOM level (all attached elements)
+      if (track.attachedElements) {
+        track.attachedElements.forEach(el => {
+          el.muted = (v <= 0);
+          el.volume = v;
+          // Security: force pause if muted to be 100% sure
+          if (v <= 0) {
+            el.pause(); 
+          } else {
+            el.play().catch(() => {});
+          }
+        });
+      }
     }
   }
 
