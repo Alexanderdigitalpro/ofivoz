@@ -18,7 +18,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v30';
+const LOCAL_VERSION = 'v31';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -311,7 +311,7 @@ async function connectLiveKit() {
       const el = track.attach();
       el.id = `audio-${participant.identity}`;
       audioElements.appendChild(el);
-      adjustVolume(participant.identity);
+      updateAllVolumes();
     }
   });
 
@@ -586,18 +586,46 @@ function adjustVolume(identity) {
 }
 
 function updateAllVolumes() {
+  if (!room) return;
   try {
-    if (room && room.remoteParticipants) {
-      Array.from(room.remoteParticipants.values()).forEach(p => {
-        adjustVolume(p.identity);
+    room.remoteParticipants.forEach(p => {
+      let speakerGroup = [];
+      if (p.metadata) {
+        try { speakerGroup = JSON.parse(p.metadata); } catch(e) {}
+      }
+
+      const speakerInPrivate = (speakerGroup && speakerGroup.length > 1);
+      const meInPrivate = (activeWhisperGroup && activeWhisperGroup.length > 1);
+      
+      let shouldHear = true;
+      if (gritoSender) {
+        shouldHear = true; // Everyone hears the shout
+      } else if (speakerInPrivate) {
+        shouldHear = speakerGroup.includes(currentUser);
+      } else {
+        shouldHear = !meInPrivate;
+      }
+
+      // NUCLEAR ISOLATION: Unsubscribe from the track entirely
+      p.audioTrackPublications.forEach(pub => {
+        if (pub.isSubscribed !== shouldHear) {
+          pub.setSubscribed(shouldHear);
+        }
       });
-    } else if (room && room.participants) {
-      room.participants.forEach(p => { // Fallback map
-        adjustVolume(p.identity);
+      
+      // Also apply volume to subscribed tracks just in case
+      p.audioTrackPublications.forEach(pub => {
+        if (pub.audioTrack && pub.audioTrack.setVolume) {
+          if (gritoSender && p.identity !== gritoSender) {
+            pub.audioTrack.setVolume(0.1);
+          } else {
+            pub.audioTrack.setVolume(shouldHear ? 1.0 : 0.0);
+          }
+        }
       });
-    }
+    });
   } catch (err) {
-    console.error("Volume Error:", err);
+    console.error("Sync Error:", err);
   }
 }
 
