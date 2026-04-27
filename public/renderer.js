@@ -210,13 +210,24 @@ async function connectSignaling() {
     const data = JSON.parse(event.data);
     if (data.type === 'presence') {
       usersState = data.users.filter(u => u !== currentUser);
-      // PERSISTENCE: Sync rooms from server
-      if (data.userGroups) {
-        userGroups = data.userGroups;
-        if (userGroups[currentUser]) {
-          activeWhisperGroup = userGroups[currentUser];
+      
+      // SELF-HEALING: If server restarted and lost our room, we teach it again
+      if (activeWhisperGroup.length > 0) {
+        const serverStoredGroup = data.userGroups ? data.userGroups[currentUser] : null;
+        if (!serverStoredGroup || JSON.stringify(serverStoredGroup) !== JSON.stringify(activeWhisperGroup)) {
+          safeWsSend({ type: 'whisper_sync', from: currentUser, group: activeWhisperGroup });
         }
       }
+
+      // SYNC: Adopt others' states from server
+      if (data.userGroups) {
+        Object.keys(data.userGroups).forEach(u => {
+          if (u !== currentUser) {
+            userGroups[u] = data.userGroups[u];
+          }
+        });
+      }
+
       updateAllVolumes();
       renderUsers();
     } else if (data.type === 'ring') {
