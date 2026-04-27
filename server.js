@@ -11,7 +11,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const CURRENT_VERSION = 'v31'; // Auto-update to v31
+const CURRENT_VERSION = 'v32'; // Auto-update to v32
 
 app.use(cors());
 app.use(express.json());

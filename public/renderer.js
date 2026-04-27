@@ -18,7 +18,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v31';
+const LOCAL_VERSION = 'v32';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -311,6 +311,10 @@ async function connectLiveKit() {
       const el = track.attach();
       el.id = `audio-${participant.identity}`;
       audioElements.appendChild(el);
+      
+      // iPad/iOS Failsafe: Force play after attach
+      el.play().catch(e => console.warn("Playback blocked:", e));
+      
       updateAllVolumes();
     }
   });
@@ -588,6 +592,13 @@ function adjustVolume(identity) {
 function updateAllVolumes() {
   if (!room) return;
   try {
+    // Determine MY state from metadata (Absolute Truth)
+    let myGrp = [];
+    if (room.localParticipant.metadata) {
+      try { myGrp = JSON.parse(room.localParticipant.metadata); } catch(e) {}
+    }
+    const meInPrivate = (myGrp && myGrp.length > 1);
+
     room.remoteParticipants.forEach(p => {
       let speakerGroup = [];
       if (p.metadata) {
@@ -595,14 +606,15 @@ function updateAllVolumes() {
       }
 
       const speakerInPrivate = (speakerGroup && speakerGroup.length > 1);
-      const meInPrivate = (activeWhisperGroup && activeWhisperGroup.length > 1);
       
       let shouldHear = true;
       if (gritoSender) {
-        shouldHear = true; // Everyone hears the shout
+        shouldHear = true; 
       } else if (speakerInPrivate) {
+        // Speaker is in a room. I only hear them if I'm in the SAME room.
         shouldHear = speakerGroup.includes(currentUser);
       } else {
+        // Speaker is in General Office. I only hear them if I am ALSO in General Office.
         shouldHear = !meInPrivate;
       }
 
@@ -611,10 +623,8 @@ function updateAllVolumes() {
         if (pub.isSubscribed !== shouldHear) {
           pub.setSubscribed(shouldHear);
         }
-      });
-      
-      // Also apply volume to subscribed tracks just in case
-      p.audioTrackPublications.forEach(pub => {
+        
+        // Volume fallback for subscribed tracks
         if (pub.audioTrack && pub.audioTrack.setVolume) {
           if (gritoSender && p.identity !== gritoSender) {
             pub.audioTrack.setVolume(0.1);
