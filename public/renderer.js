@@ -18,7 +18,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v32';
+const LOCAL_VERSION = 'v34';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -153,7 +153,29 @@ muteBtn.addEventListener('click', async () => {
 // 1. Initial State: Connect on Username
 joinBtn.addEventListener('click', async () => {
   const val = usernameInput.value.trim();
-  if (!val) return;
+  const pass = document.getElementById('passwordInput').value.trim();
+  if (!val || !pass) {
+    alert("Selecciona tu nombre e ingresa la contraseña.");
+    return;
+  }
+
+  // Verify credentials on server
+  try {
+    const loginRes = await fetch('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: val, password: pass })
+    });
+    const loginData = await loginRes.json();
+    if (!loginData.success) {
+      alert("⚠️ Contraseña incorrecta");
+      return;
+    }
+  } catch (err) {
+    console.error("Login Error:", err);
+    return;
+  }
+
   currentUser = val;
   currentUserDisplay.innerText = currentUser;
   
@@ -356,6 +378,11 @@ async function connectLiveKit() {
   
   // Visualizer FX
   audioVisualizer.classList.add('visualizer-active');
+
+  // Background Sanity Check: Run every 2 seconds to ensure isolation is enforced
+  setInterval(() => {
+    updateAllVolumes();
+  }, 2000);
 
   // Handle metadata changes for room sync
   const onMetadataChanged = (metadata, p) => {
@@ -592,17 +619,23 @@ function adjustVolume(identity) {
 function updateAllVolumes() {
   if (!room) return;
   try {
-    // Determine MY state from metadata (Absolute Truth)
+    const myId = currentUser.toLowerCase().trim();
     let myGrp = [];
     if (room.localParticipant.metadata) {
-      try { myGrp = JSON.parse(room.localParticipant.metadata); } catch(e) {}
+      try { 
+        const parsed = JSON.parse(room.localParticipant.metadata);
+        if (Array.isArray(parsed)) myGrp = parsed.map(n => n.toLowerCase().trim());
+      } catch(e) {}
     }
     const meInPrivate = (myGrp && myGrp.length > 1);
 
     room.remoteParticipants.forEach(p => {
       let speakerGroup = [];
       if (p.metadata) {
-        try { speakerGroup = JSON.parse(p.metadata); } catch(e) {}
+        try { 
+          const parsed = JSON.parse(p.metadata);
+          if (Array.isArray(parsed)) speakerGroup = parsed.map(n => n.toLowerCase().trim());
+        } catch(e) {}
       }
 
       const speakerInPrivate = (speakerGroup && speakerGroup.length > 1);
@@ -611,31 +644,45 @@ function updateAllVolumes() {
       if (gritoSender) {
         shouldHear = true; 
       } else if (speakerInPrivate) {
-        // Speaker is in a room. I only hear them if I'm in the SAME room.
-        shouldHear = speakerGroup.includes(currentUser);
+        shouldHear = speakerGroup.includes(myId);
       } else {
-        // Speaker is in General Office. I only hear them if I am ALSO in General Office.
         shouldHear = !meInPrivate;
       }
 
-      // NUCLEAR ISOLATION: Unsubscribe from the track entirely
       p.audioTrackPublications.forEach(pub => {
+        // Enforce subscription state
         if (pub.isSubscribed !== shouldHear) {
           pub.setSubscribed(shouldHear);
         }
         
-        // Volume fallback for subscribed tracks
-        if (pub.audioTrack && pub.audioTrack.setVolume) {
-          if (gritoSender && p.identity !== gritoSender) {
-            pub.audioTrack.setVolume(0.1);
+        const track = pub.audioTrack;
+        if (track) {
+          if (shouldHear) {
+            // Restore volume
+            if (track.setVolume) track.setVolume(gritoSender && p.identity !== gritoSender ? 0.1 : 1.0);
+            if (track.attachedElements) {
+              track.attachedElements.forEach(el => {
+                el.muted = false;
+                el.volume = (gritoSender && p.identity !== gritoSender ? 0.1 : 1.0);
+                el.play().catch(() => {});
+              });
+            }
           } else {
-            pub.audioTrack.setVolume(shouldHear ? 1.0 : 0.0);
+            // FORCE MUTE & PAUSE & DETACH
+            if (track.setVolume) track.setVolume(0);
+            if (track.attachedElements) {
+              track.attachedElements.forEach(el => {
+                el.muted = true;
+                el.volume = 0;
+                el.pause();
+              });
+            }
           }
         }
       });
     });
   } catch (err) {
-    console.error("Sync Error:", err);
+    console.error("Global Audio Sync Error:", err);
   }
 }
 

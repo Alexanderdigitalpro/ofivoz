@@ -130,10 +130,24 @@
       <p class="text-gray-400 mb-6 font-light italic">Tu oficina remota sin fricciones.</p>
       
       <div class="space-y-6">
-        <input type="text" id="usernameInput" placeholder="Tu nombre..." class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:border-purple-500 transition-all text-center text-xl text-white">
-        
-        <button id="joinBtn" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-5 rounded-2xl transition-all active:scale-95 shadow-lg shadow-purple-500/20">
-          Entrar a la Oficina
+        <div>
+          <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3 ml-1">Selecciona tu Perfil</label>
+          <select id="usernameInput" class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-purple-500/50 transition-all appearance-none cursor-pointer">
+            <option value="" disabled selected class="bg-[#08080a]">Elegir integrante...</option>
+            <option value="Alex" class="bg-[#08080a]">Alex</option>
+            <option value="Day" class="bg-[#08080a]">Day</option>
+            <option value="Lau" class="bg-[#08080a]">Lau</option>
+            <option value="Thir" class="bg-[#08080a]">Thir</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3 ml-1">Contraseña</label>
+          <input type="password" id="passwordInput" placeholder="••••" class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-purple-500/50 transition-all text-center tracking-[0.5em]">
+        </div>
+
+        <button id="joinBtn" class="w-full bg-white text-black font-black py-5 rounded-[24px] hover:bg-purple-500 hover:text-white transition-all transform active:scale-95 shadow-xl shadow-white/5">
+          ENTRAR A LA OFICINA
         </button>
       </div>
     </div>
@@ -147,7 +161,7 @@
       <div class="flex items-center gap-3">
         <div class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]"></div>
         <span class="text-[10px] font-black tracking-[0.2em] uppercase text-gray-400">En Linea</span>
-        <span class="text-[11px] font-bold text-gray-600 bg-white/5 px-2 py-0.5 rounded-full ml-1">v32</span>
+        <span class="text-[11px] font-bold text-gray-600 bg-white/5 px-2 py-0.5 rounded-full ml-1">v34</span>
       </div>
       <div class="flex items-center gap-4">
         <div class="text-right">
@@ -275,6 +289,6 @@
   <audio id="ringSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
   <div id="audioElements" style="visibility:hidden; height:0; width:0; overflow:hidden;"></div>
 
-  <script type="module" src="renderer.js?v=32"></script>
+  <script type="module" src="renderer.js?v=34"></script>
 </body>
 </html>

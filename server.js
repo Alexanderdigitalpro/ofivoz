@@ -11,7 +11,14 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const CURRENT_VERSION = 'v32'; // Auto-update to v32
+const CURRENT_VERSION = 'v34'; // Auto-update to v34
+
+const USER_DB = {
+  "Alex": "1",
+  "Day": "2",
+  "Lau": "3",
+  "Thir": "4"
+};
 
 app.use(cors());
 app.use(express.json());
@@ -35,6 +42,16 @@ app.post('/getToken', async (req, res) => {
 
   const tokenStr = await at.toJwt();
   res.json({ token: tokenStr, livekitUrl: livekitHost });
+});
+
+// Endpoint for password verification
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  if (USER_DB[username] && USER_DB[username] === password) {
+    res.json({ success: true });
+  } else {
+    res.json({ success: false, message: 'Credenciales incorrectas' });
+  }
 });
 
 // WebSocket Server for custom signaling
