@@ -210,6 +210,14 @@ async function connectSignaling() {
     const data = JSON.parse(event.data);
     if (data.type === 'presence') {
       usersState = data.users.filter(u => u !== currentUser);
+      // PERSISTENCE: Sync rooms from server
+      if (data.userGroups) {
+        userGroups = data.userGroups;
+        if (userGroups[currentUser]) {
+          activeWhisperGroup = userGroups[currentUser];
+        }
+      }
+      updateAllVolumes();
       renderUsers();
     } else if (data.type === 'ring') {
       playRingSound(data.from);
