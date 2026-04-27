@@ -18,7 +18,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v28';
+const LOCAL_VERSION = 'v29';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
