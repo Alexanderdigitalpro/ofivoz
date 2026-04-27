@@ -18,7 +18,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v27';
+const LOCAL_VERSION = 'v28';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -354,12 +354,18 @@ async function connectLiveKit() {
   audioVisualizer.classList.add('visualizer-active');
 
   // Handle metadata changes for room sync
-  const onMetadataChanged = () => {
+  const onMetadataChanged = (metadata, p) => {
     updateAllVolumes();
     renderUsers();
   };
 
   room.on(RoomEvent.ParticipantMetadataChanged, onMetadataChanged);
+  
+  // Attach listeners to EXISTING participants
+  room.remoteParticipants.forEach((p) => {
+    p.on(ParticipantEvent.MetadataChanged, onMetadataChanged);
+  });
+
   room.on(RoomEvent.ParticipantConnected, (p) => {
     p.on(ParticipantEvent.MetadataChanged, onMetadataChanged);
     renderUsers();
@@ -511,7 +517,7 @@ function adjustVolume(identity) {
   let speakerGroup = [];
 
   if (room) {
-    const p = room.remoteParticipants.get(identity) || room.localParticipant;
+    const p = (identity === currentUser) ? room.localParticipant : room.remoteParticipants.get(identity);
     if (p) {
       // Hardware track
       const pub = Array.from(p.audioTrackPublications.values())[0];
@@ -536,6 +542,7 @@ function adjustVolume(identity) {
     }
   }
 
+  // GLOBAL OVERRIDE: Grito (Shout)
   if (gritoSender) {
     if (identity === gritoSender) {
       applyVol(1.0);
@@ -545,14 +552,21 @@ function adjustVolume(identity) {
     return;
   }
   
-  if (speakerGroup && speakerGroup.length > 0) {
+  // ISOLATION LOGIC
+  const speakerInPrivate = (speakerGroup && speakerGroup.length > 1);
+  const meInPrivate = (activeWhisperGroup && activeWhisperGroup.length > 1);
+
+  if (speakerInPrivate) {
+    // If the speaker is in a private room, only their group hears them
     if (speakerGroup.includes(currentUser)) {
       applyVol(1.0);
     } else {
       applyVol(0.0);
     }
   } else {
-    if (activeWhisperGroup.length > 0) {
+    // Speaker is in General Office. 
+    // Only people also in General Office hear them.
+    if (meInPrivate) {
       applyVol(0.0);
     } else {
       applyVol(1.0);
