@@ -11,6 +11,8 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+const CURRENT_VERSION = 'v26'; // Auto-update to v26
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public')); // Serve frontend web app
@@ -88,7 +90,8 @@ function broadcastState() {
       c.send(JSON.stringify({ 
         type: 'presence', 
         users,
-        userGroups: globalUserGroups // Include the rooms state
+        userGroups: globalUserGroups,
+        version: CURRENT_VERSION // Send version to clients
       }));
     }
   }

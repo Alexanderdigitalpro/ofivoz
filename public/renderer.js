@@ -16,6 +16,9 @@ const audioVisualizer = document.querySelector('.audio-visualizer');
 const toastNotification = document.getElementById('toastNotification');
 const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
+const updateModal = document.getElementById('updateModal');
+
+const LOCAL_VERSION = 'v26';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -216,6 +219,12 @@ async function connectSignaling() {
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     if (data.type === 'presence') {
+      // VERSION CHECK: If server has a newer version, force update prompt
+      if (data.version && data.version !== LOCAL_VERSION) {
+        if (updateModal) updateModal.classList.remove('hidden');
+        return; // Stop processing to encourage update
+      }
+
       usersState = data.users.filter(u => u !== currentUser);
       
       // SELF-HEALING: If server restarted and lost our room, we teach it again
