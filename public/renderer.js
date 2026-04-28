@@ -18,7 +18,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v36';
+const LOCAL_VERSION = 'v37';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -644,9 +644,12 @@ function updateAllVolumes() {
         } catch(e) {}
       }
       
-      // Fallback: If LiveKit metadata is delayed, use WebSocket's immediate state
-      if (speakerGroup.length <= 1 && userGroups[p.identity]) {
-         speakerGroup = userGroups[p.identity].map(n => n.toLowerCase().trim());
+      // Fallback: If LiveKit metadata is delayed, check if ANY user reported this speaker in a group
+      if (speakerGroup.length <= 1) {
+         const wsGroup = Object.values(userGroups).find(g => Array.isArray(g) && g.some(n => n.toLowerCase().trim() === p.identity.toLowerCase().trim()));
+         if (wsGroup) {
+             speakerGroup = wsGroup.map(n => n.toLowerCase().trim());
+         }
       }
 
       const speakerInPrivate = (speakerGroup && speakerGroup.length > 1);
