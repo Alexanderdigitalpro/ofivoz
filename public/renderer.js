@@ -18,7 +18,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v34';
+const LOCAL_VERSION = 'v35';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -310,6 +310,9 @@ async function connectSignaling() {
       
       if (changed) {
         userGroups[currentUser] = activeWhisperGroup;
+        if (room && room.localParticipant) {
+          room.localParticipant.setMetadata(JSON.stringify(activeWhisperGroup));
+        }
         // Broadcast my adoption of the room state so everyone mutes me appropriately
         safeWsSend({ type: 'whisper_sync', from: currentUser, group: activeWhisperGroup });
       }
