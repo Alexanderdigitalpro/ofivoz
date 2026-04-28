@@ -11,7 +11,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const CURRENT_VERSION = 'v37'; // Auto-update to v37
+const CURRENT_VERSION = 'v38'; // Auto-update to v38
 
 const USER_DB = {
   "Alex": "1",
@@ -73,17 +73,36 @@ wss.on('connection', (ws) => {
           targetWs.send(JSON.stringify({ type: 'ring', from: clients.get(ws) }));
         }
       } else {
-        // PERSISTENCE: Save state on server so late joiners see active rooms
         if (data.type === 'whisper_sync') {
-          globalUserGroups[data.from] = data.group;
+          if (data.group && data.group.length > 1) {
+             data.group.forEach(m => globalUserGroups[m] = data.group);
+          } else {
+             // Leave group logic
+             const oldGroup = globalUserGroups[data.from] || [];
+             oldGroup.forEach(m => {
+                 if (globalUserGroups[m]) {
+                     globalUserGroups[m] = globalUserGroups[m].filter(u => u !== data.from);
+                     if (globalUserGroups[m].length <= 1) delete globalUserGroups[m];
+                 }
+             });
+             delete globalUserGroups[data.from];
+          }
+          broadcastState(); // Tell everyone IMMEDIATELY about the new state!
         } else if (data.type === 'grito_start') {
           globalUserGroups = {}; // Broadcast shout clears all rooms
-        }
-
-        // Broadcast all other events (grito_start, grito_stop, whisper_sync, etc.) to all other clients
-        for (const c of clients.keys()) {
-          if (c !== ws && c.readyState === WebSocket.OPEN) {
-            c.send(JSON.stringify(data));
+          broadcastState();
+          // Broadcast grito_start to others
+          for (const c of clients.keys()) {
+            if (c !== ws && c.readyState === WebSocket.OPEN) {
+              c.send(JSON.stringify(data));
+            }
+          }
+        } else {
+          // Broadcast all other events (grito_stop, etc.) to other clients
+          for (const c of clients.keys()) {
+            if (c !== ws && c.readyState === WebSocket.OPEN) {
+              c.send(JSON.stringify(data));
+            }
           }
         }
       }
@@ -94,7 +113,16 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     const name = clients.get(ws);
-    if (name) delete globalUserGroups[name];
+    if (name) {
+       const oldGroup = globalUserGroups[name] || [];
+       oldGroup.forEach(m => {
+           if (globalUserGroups[m]) {
+               globalUserGroups[m] = globalUserGroups[m].filter(u => u !== name);
+               if (globalUserGroups[m].length <= 1) delete globalUserGroups[m];
+           }
+       });
+       delete globalUserGroups[name];
+    }
     clients.delete(ws);
     broadcastState();
   });

@@ -18,7 +18,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v37';
+const LOCAL_VERSION = 'v38';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -241,29 +241,25 @@ async function connectSignaling() {
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     if (data.type === 'presence') {
-      // VERSION CHECK: If server has a newer version, force update prompt
       if (data.version && data.version !== LOCAL_VERSION) {
         if (updateModal) updateModal.classList.remove('hidden');
-        return; // Stop processing to encourage update
+        return; 
       }
 
       usersState = data.users.filter(u => u !== currentUser);
+      userGroups = data.userGroups || {};
       
-      // SELF-HEALING: If server restarted and lost our room, we teach it again
-      if (activeWhisperGroup.length > 0) {
-        const serverStoredGroup = data.userGroups ? data.userGroups[currentUser] : null;
-        if (!serverStoredGroup || JSON.stringify(serverStoredGroup) !== JSON.stringify(activeWhisperGroup)) {
-          safeWsSend({ type: 'whisper_sync', from: currentUser, group: activeWhisperGroup });
-        }
-      }
-
-      // SYNC: Adopt others' states from server
-      if (data.userGroups) {
-        Object.keys(data.userGroups).forEach(u => {
-          if (u !== currentUser) {
-            userGroups[u] = data.userGroups[u];
-          }
-        });
+      // The server is the absolute source of truth. 
+      // If the server says I am in a room, I am in a room.
+      const serverMyGroup = userGroups[currentUser] || [];
+      if (JSON.stringify(activeWhisperGroup) !== JSON.stringify(serverMyGroup)) {
+         if (activeWhisperGroup.length === 0 && serverMyGroup.length > 1) {
+             showToast(`🗣️ Te han unido a una Sub-sala.`);
+         }
+         activeWhisperGroup = serverMyGroup;
+         if (room && room.localParticipant) {
+             room.localParticipant.setMetadata(JSON.stringify(activeWhisperGroup));
+         }
       }
 
       updateAllVolumes();
@@ -272,11 +268,8 @@ async function connectSignaling() {
       playRingSound(data.from);
     } else if (data.type === 'grito_start') {
       gritoSender = data.from;
-      // Destruir todas las subsalas privadas inmediatamente
       activeWhisperGroup = [];
-      if (room && room.localParticipant) {
-          room.localParticipant.setMetadata(JSON.stringify([]));
-      }
+      if (room && room.localParticipant) room.localParticipant.setMetadata("[]");
       document.body.classList.add('grito-active');
       updateAllVolumes();
       renderUsers();
@@ -284,41 +277,6 @@ async function connectSignaling() {
       gritoSender = null;
       document.body.classList.remove('grito-active');
       updateAllVolumes();
-    } else if (data.type === 'whisper_sync') {
-      userGroups[data.from] = data.group;
-      
-      let changed = false;
-      if (data.group.includes(currentUser)) {
-        if (JSON.stringify(activeWhisperGroup) !== JSON.stringify(data.group)) {
-          // If group changes and it's not from ME, it means someone else modified the room I am in
-          if (data.from !== currentUser && activeWhisperGroup.length < data.group.length) {
-             showToast(`🗣️ ${data.from} modificó la Sub-sala.`);
-          }
-          activeWhisperGroup = data.group;
-          changed = true;
-        }
-      } else if (activeWhisperGroup.includes(data.from)) {
-        if (!data.group.includes(currentUser)) {
-          showToast(`🚪 ${data.from} salió de la Sub-sala.`);
-          activeWhisperGroup = activeWhisperGroup.filter(u => u !== data.from);
-          if (activeWhisperGroup.length <= 1) {
-            activeWhisperGroup = [];
-          }
-          changed = true;
-        }
-      }
-      
-      if (changed) {
-        userGroups[currentUser] = activeWhisperGroup;
-        if (room && room.localParticipant) {
-          room.localParticipant.setMetadata(JSON.stringify(activeWhisperGroup));
-        }
-        // Broadcast my adoption of the room state so everyone mutes me appropriately
-        safeWsSend({ type: 'whisper_sync', from: currentUser, group: activeWhisperGroup });
-      }
-      
-      updateAllVolumes();
-      renderUsers();
     } else if (data.type === 'request_join' && data.to === currentUser) {
       playKnockSound();
       pendingJoinRequest = data.from;
@@ -622,36 +580,12 @@ function adjustVolume(identity) {
 function updateAllVolumes() {
   if (!room) return;
   try {
-    const myId = currentUser.toLowerCase().trim();
-    
-    // Determine MY state using both memory (WebSocket) and LiveKit (Metadata)
-    let myGrp = activeWhisperGroup.map(n => n.toLowerCase().trim());
-    if (myGrp.length <= 1 && room.localParticipant.metadata) {
-      try { 
-        const parsed = JSON.parse(room.localParticipant.metadata);
-        if (Array.isArray(parsed)) myGrp = parsed.map(n => n.toLowerCase().trim());
-      } catch(e) {}
-    }
-    const meInPrivate = (myGrp && myGrp.length > 1);
+    const myId = currentUser;
+    const meInPrivate = (activeWhisperGroup && activeWhisperGroup.length > 1);
 
     room.remoteParticipants.forEach(p => {
-      // Determine remote speaker state using both Metadata and WebSocket fallback
-      let speakerGroup = [];
-      if (p.metadata) {
-        try { 
-          const parsed = JSON.parse(p.metadata);
-          if (Array.isArray(parsed)) speakerGroup = parsed.map(n => n.toLowerCase().trim());
-        } catch(e) {}
-      }
-      
-      // Fallback: If LiveKit metadata is delayed, check if ANY user reported this speaker in a group
-      if (speakerGroup.length <= 1) {
-         const wsGroup = Object.values(userGroups).find(g => Array.isArray(g) && g.some(n => n.toLowerCase().trim() === p.identity.toLowerCase().trim()));
-         if (wsGroup) {
-             speakerGroup = wsGroup.map(n => n.toLowerCase().trim());
-         }
-      }
-
+      // ONLY source of truth for remote state is userGroups from the Server!
+      const speakerGroup = userGroups[p.identity] || [];
       const speakerInPrivate = (speakerGroup && speakerGroup.length > 1);
       
       let shouldHear = true;
@@ -709,13 +643,9 @@ function renderUsers() {
     const allParticipants = [room.localParticipant, ...Array.from(room.remoteParticipants.values())];
     
     allParticipants.forEach(p => {
-        let grp = [p.identity];
-        if (p.metadata) {
-            try {
-                const parsed = JSON.parse(p.metadata);
-                if (Array.isArray(parsed) && parsed.length > 0) grp = parsed;
-            } catch(e) {}
-        }
+        // ALWAYS use the server's userGroups state!
+        let grp = userGroups[p.identity];
+        if (!grp || grp.length <= 1) grp = [p.identity];
         userIntentions[p.identity] = grp;
     });
   }
