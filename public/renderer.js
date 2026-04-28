@@ -18,7 +18,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v35';
+const LOCAL_VERSION = 'v36';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -623,8 +623,10 @@ function updateAllVolumes() {
   if (!room) return;
   try {
     const myId = currentUser.toLowerCase().trim();
-    let myGrp = [];
-    if (room.localParticipant.metadata) {
+    
+    // Determine MY state using both memory (WebSocket) and LiveKit (Metadata)
+    let myGrp = activeWhisperGroup.map(n => n.toLowerCase().trim());
+    if (myGrp.length <= 1 && room.localParticipant.metadata) {
       try { 
         const parsed = JSON.parse(room.localParticipant.metadata);
         if (Array.isArray(parsed)) myGrp = parsed.map(n => n.toLowerCase().trim());
@@ -633,12 +635,18 @@ function updateAllVolumes() {
     const meInPrivate = (myGrp && myGrp.length > 1);
 
     room.remoteParticipants.forEach(p => {
+      // Determine remote speaker state using both Metadata and WebSocket fallback
       let speakerGroup = [];
       if (p.metadata) {
         try { 
           const parsed = JSON.parse(p.metadata);
           if (Array.isArray(parsed)) speakerGroup = parsed.map(n => n.toLowerCase().trim());
         } catch(e) {}
+      }
+      
+      // Fallback: If LiveKit metadata is delayed, use WebSocket's immediate state
+      if (speakerGroup.length <= 1 && userGroups[p.identity]) {
+         speakerGroup = userGroups[p.identity].map(n => n.toLowerCase().trim());
       }
 
       const speakerInPrivate = (speakerGroup && speakerGroup.length > 1);
