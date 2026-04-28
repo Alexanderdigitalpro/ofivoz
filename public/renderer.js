@@ -23,7 +23,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v44';
+const LOCAL_VERSION = 'v45';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -154,6 +154,87 @@ muteBtn.addEventListener('click', async () => {
     bars.forEach(b => b.classList.add('bar-active'));
   }
 });
+
+// -----------------------------------------
+// Picture in Picture (PiP) Logic
+// -----------------------------------------
+let pipWindow = null;
+const pipBtn = document.getElementById('pipBtn');
+
+if ('documentPictureInPicture' in window) {
+  if (pipBtn) pipBtn.classList.remove('hidden');
+  
+  pipBtn.addEventListener('click', async () => {
+    if (pipWindow) {
+      pipWindow.close();
+      return;
+    }
+    
+    try {
+      pipWindow = await window.documentPictureInPicture.requestWindow({
+        width: 380,
+        height: 520
+      });
+      
+      // Copy styles
+      const tailwindStyle = document.getElementById('tailwindcss');
+      if (tailwindStyle) pipWindow.document.head.appendChild(tailwindStyle.cloneNode(true));
+      
+      const customStyles = document.querySelectorAll('style');
+      customStyles.forEach(s => pipWindow.document.head.appendChild(s.cloneNode(true)));
+      
+      // Body setup
+      pipWindow.document.body.style.backgroundColor = '#040405';
+      pipWindow.document.body.style.padding = '20px';
+      pipWindow.document.body.style.display = 'flex';
+      pipWindow.document.body.style.flexDirection = 'column';
+      pipWindow.document.body.style.gap = '15px';
+      pipWindow.document.body.style.height = '100vh';
+      pipWindow.document.body.style.margin = '0';
+      pipWindow.document.body.style.fontFamily = "'Outfit', sans-serif";
+      pipWindow.document.body.classList.add('bg-[#040405]');
+      
+      // Elements to move
+      const micContainer = document.getElementById('micPanel');
+      const deafenContainer = document.getElementById('deafenBtn').parentElement;
+      
+      // Save original parents and siblings to restore later
+      const micParent = micContainer.parentElement;
+      const micNextSibling = micContainer.nextSibling;
+      
+      const deafenParent = deafenContainer.parentElement;
+      const deafenNextSibling = deafenContainer.nextSibling;
+      
+      // Move to PiP
+      pipWindow.document.body.appendChild(micContainer);
+      pipWindow.document.body.appendChild(deafenContainer);
+      
+      // Modify styling slightly for PiP view
+      micContainer.style.flex = '1';
+      deafenContainer.style.flex = 'none';
+      
+      pipBtn.innerText = "Cerrar Flotante ✖";
+      
+      pipWindow.addEventListener('pagehide', () => {
+        // Move back to main window
+        if (micNextSibling) micParent.insertBefore(micContainer, micNextSibling);
+        else micParent.appendChild(micContainer);
+        
+        if (deafenNextSibling) deafenParent.insertBefore(deafenContainer, deafenNextSibling);
+        else deafenParent.appendChild(deafenContainer);
+        
+        micContainer.style.flex = '';
+        deafenContainer.style.flex = '';
+        
+        pipWindow = null;
+        pipBtn.innerText = "Modo Flotante 🔲";
+      });
+      
+    } catch(err) {
+      console.warn("PiP Error:", err);
+    }
+  });
+}
 
 // Deafen Logic (Universal Mute Incoming)
 let isDeafened = false;
