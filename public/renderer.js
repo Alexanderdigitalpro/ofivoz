@@ -23,7 +23,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v49';
+const LOCAL_VERSION = 'v50';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -980,7 +980,7 @@ function attachAllVideos() {
   console.log("Corriendo attachAllVideos...");
   
   // Remote participants
-  room.participants.forEach(p => {
+  room.remoteParticipants.forEach(p => {
     if (p.videoTracks) {
       p.videoTracks.forEach(pub => {
         console.log(`Remote Pub: ${p.identity}, hasTrack: ${!!pub.track}, isSubscribed: ${pub.isSubscribed}`);
