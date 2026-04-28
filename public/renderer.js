@@ -23,7 +23,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v47';
+const LOCAL_VERSION = 'v48';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -975,10 +975,12 @@ function renderUsers() {
 // -----------------------------------------
 function attachAllVideos() {
   if (!room) return;
+  console.log("Corriendo attachAllVideos...");
   
   // Remote participants
   room.participants.forEach(p => {
     p.videoTrackPublications.forEach(pub => {
+      console.log(`Remote Pub: ${p.identity}, hasTrack: ${!!pub.track}, isSubscribed: ${pub.isSubscribed}`);
       if (pub.isSubscribed && pub.track) {
         attachVideo(p.identity, pub.track);
       }
@@ -988,28 +990,44 @@ function attachAllVideos() {
   // Local participant
   if (room.localParticipant) {
      room.localParticipant.videoTrackPublications.forEach(pub => {
+        console.log(`Local Pub: currentUser, hasTrack: ${!!pub.track}`);
         if (pub.track) attachVideo(currentUser, pub.track);
      });
   }
 }
 
 function attachVideo(identity, track) {
+  console.log(`Intentando adjuntar video para: ${identity}`);
   // Main UI
   const container = document.getElementById(`video-container-${identity}`);
   if (container) {
-    container.innerHTML = '';
-    const el = track.attach();
-    el.className = 'w-full h-full object-cover';
-    container.appendChild(el);
+    if (!container.querySelector('video')) {
+       const videoEl = document.createElement('video');
+       videoEl.className = 'w-full h-full object-cover';
+       videoEl.autoplay = true;
+       videoEl.playsInline = true;
+       videoEl.muted = true; // Local videos and remote usually better handled by LiveKit, but explicitly muted here just in case. Audio is handled by audio tracks.
+       container.appendChild(videoEl);
+       track.attach(videoEl);
+       console.log(`✅ Video adjuntado a UI principal para: ${identity}`);
+    }
+  } else {
+    console.warn(`❌ No se encontró el contenedor principal para: ${identity}`);
   }
   
   // Modal UI
   const modalContainer = document.getElementById(`modal-video-${identity}`);
   if (modalContainer) {
-    modalContainer.innerHTML = '';
-    const el2 = track.attach();
-    el2.className = 'w-full h-full object-cover rounded-full border-4 border-purple-500 shadow-2xl';
-    modalContainer.appendChild(el2);
+    if (!modalContainer.querySelector('video')) {
+       const videoEl2 = document.createElement('video');
+       videoEl2.className = 'w-full h-full object-cover rounded-full border-4 border-purple-500 shadow-2xl';
+       videoEl2.autoplay = true;
+       videoEl2.playsInline = true;
+       videoEl2.muted = true;
+       modalContainer.appendChild(videoEl2);
+       track.attach(videoEl2);
+       console.log(`✅ Video adjuntado a Modal para: ${identity}`);
+    }
   }
 }
 
