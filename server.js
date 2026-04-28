@@ -11,7 +11,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const CURRENT_VERSION = 'v43'; // Auto-update to v43
+const CURRENT_VERSION = 'v44'; // Auto-update to v44
 
 const USER_DB = {
   "Alex": "1234",

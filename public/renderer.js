@@ -23,7 +23,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v43';
+const LOCAL_VERSION = 'v44';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -131,7 +131,7 @@ muteBtn.addEventListener('click', async () => {
     await room.startAudio(); // Safety net gesture catch
   } catch(e) {}
   
-  const label = muteBtn.querySelector('.btn-label');
+  const label = document.getElementById('micLabel');
   const bars = document.querySelectorAll('.visualizer-bar');
 
   if (isMuted) {
@@ -139,17 +139,17 @@ muteBtn.addEventListener('click', async () => {
     muteBtn.classList.add('mic-off');
     if(label) {
       label.innerText = 'MIC OFF';
-      label.classList.remove('text-white');
-      label.classList.add('text-gray-500');
+      label.classList.remove('status-on');
+      label.classList.add('status-off');
     }
     bars.forEach(b => b.classList.remove('bar-active'));
   } else {
     muteBtn.classList.remove('mic-off');
     muteBtn.classList.add('mic-on');
     if(label) {
-      label.innerText = 'EN EL AIRE';
-      label.classList.remove('text-gray-500');
-      label.classList.add('text-white');
+      label.innerText = 'MIC ON';
+      label.classList.remove('status-off');
+      label.classList.add('status-on');
     }
     bars.forEach(b => b.classList.add('bar-active'));
   }
@@ -162,21 +162,13 @@ if (deafenBtn) {
     isDeafened = !isDeafened;
     
     if (isDeafened) {
-      deafenIconBox.classList.remove('bg-green-500', 'shadow-green-500/20');
-      deafenIconBox.classList.add('bg-gray-600', 'shadow-gray-600/20');
+      deafenBtn.style.backgroundColor = '#4b5563'; // gray-600
       deafenIconOn.classList.add('hidden');
       deafenIconOff.classList.remove('hidden');
-      deafenLabel.innerText = "MUTEADO UNIVERSAL";
-      deafenLabel.classList.remove('text-white');
-      deafenLabel.classList.add('text-gray-500', 'line-through');
     } else {
-      deafenIconBox.classList.add('bg-green-500', 'shadow-green-500/20');
-      deafenIconBox.classList.remove('bg-gray-600', 'shadow-gray-600/20');
+      deafenBtn.style.backgroundColor = '#22c55e'; // green-500
       deafenIconOn.classList.remove('hidden');
       deafenIconOff.classList.add('hidden');
-      deafenLabel.innerText = "ALTAVOZ ON";
-      deafenLabel.classList.add('text-white');
-      deafenLabel.classList.remove('text-gray-500', 'line-through');
     }
     
     updateAllVolumes();
@@ -763,32 +755,39 @@ function renderUsers() {
     }
   });
 
-  // Render Active Rooms
-  activeRooms.forEach(roomMem => {
+  activeRooms.forEach((roomMem, idx) => {
     const isMyRoom = roomMem.includes(currentUser);
+    const creator = roomMem[0]; // First person is creator
+    
     const roomEl = document.createElement('div');
-    roomEl.className = `glass rounded-[32px] p-6 border ${isMyRoom ? 'border-purple-500/50 bg-purple-500/[0.05]' : 'border-white/5 bg-white/[0.02]'}`;
+    roomEl.className = `glass rounded-2xl p-4 mb-3 ${isMyRoom ? 'border-purple-500/30 bg-purple-500/[0.05]' : 'border-white/5 bg-white/[0.02]'}`;
     
     // Header
     let actionsHtml = '';
     if (isMyRoom) {
-       actionsHtml = `<button class="w-full py-3 mt-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-[10px] font-black tracking-widest hover:bg-red-500/20 transition-all uppercase" onclick="leaveSubRoom()">❌ Salir de Sala</button>`;
+       actionsHtml = `<button class="w-full py-2.5 mt-4 bg-red-500/10 border border-red-500/30 rounded-xl text-[9px] font-black tracking-widest text-red-400 uppercase hover:bg-red-500/20 transition-all" onclick="leaveSubRoom()">Salir de Sala</button>`;
     } else {
        const grpStr = encodeURIComponent(JSON.stringify(roomMem));
-       actionsHtml = `<button class="w-full py-3 mt-4 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-400 text-[10px] font-black tracking-widest hover:bg-purple-500/20 transition-all uppercase" onclick="requestJoin('${grpStr}')">✋ Toc Toc</button>`;
+       actionsHtml = `<button class="w-full py-2.5 mt-4 bg-purple-500/10 border border-purple-500/30 rounded-xl text-[9px] font-black tracking-widest text-purple-400 uppercase hover:bg-purple-500/20 transition-all" onclick="requestJoin('${grpStr}')">✋ Unirme a Sala</button>`;
     }
 
     const avatarsHtml = roomMem.map(u => {
       const isMe = u === currentUser;
+      const isCreator = u === creator;
       const displayName = isMe ? 'Yo' : u;
+      
+      const tooltipExtras = !isMe ? `<div class="flex gap-1 mt-1"><button class="flex-1 bg-white/10 text-[8px] py-1 rounded-md uppercase font-black hover:bg-white/20">💬</button><button onclick="triggerRing('${u}')" class="flex-1 bg-purple-600/40 text-[8px] py-1 rounded-md uppercase font-black hover:bg-purple-600/60">⚡</button></div>` : '';
+      const badgeHtml = isCreator ? `<span class="creator-badge !ml-1">CREADOR</span>` : '';
+      const ringHtml = isCreator ? 'ring-2 ring-yellow-500 ring-offset-2 ring-offset-[#08080a]' : '';
+
       return `
       <div class="has-tooltip relative">
-        <div class="w-10 h-10 rounded-full ${isMyRoom?'bg-purple-600':'bg-white/10'} border-2 border-[#08080a] flex items-center justify-center cursor-help ${isMe ? 'ring-2 ring-purple-400 ring-offset-2 ring-offset-[#08080a]' : ''}">
-          <span class="text-xs font-bold">${displayName.substring(0,2).toUpperCase()}</span>
+        <div class="w-7 h-7 rounded-full bg-indigo-600 border-2 border-black flex items-center justify-center cursor-pointer ${ringHtml}">
+          <span class="text-[9px] font-bold">${displayName.substring(0,2).toUpperCase()}</span>
         </div>
-        <div class="tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 glass rounded-xl p-3 text-center border border-white/10 z-50">
-          <p class="text-[10px] font-bold mb-2">${displayName}</p>
-          ${!isMe ? `<button onclick="triggerRing('${u}')" class="w-full bg-white/10 hover:bg-yellow-500/20 text-yellow-400 text-[9px] py-1 rounded-lg transition-all font-black uppercase">⚡️ Zumbido</button>` : ''}
+        <div class="tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-28 glass rounded-xl p-2 text-center border-purple-500/40 z-50">
+          <p class="text-[9px] font-bold mb-1">${displayName} ${badgeHtml}</p>
+          ${tooltipExtras}
         </div>
       </div>
       `;
@@ -796,11 +795,13 @@ function renderUsers() {
 
     roomEl.innerHTML = `
       <div class="flex items-center justify-between">
-        <div class="flex flex-col">
-          <span class="text-xs font-black truncate max-w-[150px]">${roomMem.join(', ')}</span>
-          <span class="text-[10px] text-gray-500">${isMyRoom ? 'Tu Sala' : 'Ocupada'} • ${roomMem.length} miem.</span>
+        <div class="flex flex-col group relative">
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] font-black uppercase text-white">SALA ${idx + 1}</span>
+          </div>
+          <span class="text-[9px] text-gray-400 italic">${isMyRoom ? 'Tu Sala' : 'Ocupada'} • ${roomMem.length} miem.</span>
         </div>
-        <div class="flex -space-x-3 items-center">
+        <div class="flex -space-x-2">
           ${avatarsHtml}
         </div>
       </div>
