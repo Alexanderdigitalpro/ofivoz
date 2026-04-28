@@ -23,7 +23,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v48';
+const LOCAL_VERSION = 'v49';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -702,7 +702,7 @@ function adjustVolume(identity) {
     const p = (identity === currentUser) ? room.localParticipant : room.remoteParticipants.get(identity);
     if (p) {
       // Hardware track
-      const pub = Array.from(p.audioTrackPublications.values())[0];
+      const pub = Array.from(p.audioTracks.values())[0];
       if (pub && pub.audioTrack) track = pub.audioTrack;
       
       // Get room state from metadata (SOURCE OF TRUTH)
@@ -796,11 +796,12 @@ function updateAllVolumes() {
         shouldHear = false;
       }
       
-      p.audioTrackPublications.forEach(pub => {
-        // Enforce subscription state
-        if (pub.isSubscribed !== shouldHear) {
-          pub.setSubscribed(shouldHear);
-        }
+      if (p.audioTracks) {
+        p.audioTracks.forEach(pub => {
+          // Enforce subscription state
+          if (pub.isSubscribed !== shouldHear) {
+            pub.setSubscribed(shouldHear);
+          }
         
         const track = pub.audioTrack;
         if (track) {
@@ -827,6 +828,7 @@ function updateAllVolumes() {
           }
         }
       });
+      }
     });
   } catch (err) {
     console.error("Global Audio Sync Error:", err);
@@ -979,17 +981,19 @@ function attachAllVideos() {
   
   // Remote participants
   room.participants.forEach(p => {
-    p.videoTrackPublications.forEach(pub => {
-      console.log(`Remote Pub: ${p.identity}, hasTrack: ${!!pub.track}, isSubscribed: ${pub.isSubscribed}`);
-      if (pub.isSubscribed && pub.track) {
-        attachVideo(p.identity, pub.track);
-      }
-    });
+    if (p.videoTracks) {
+      p.videoTracks.forEach(pub => {
+        console.log(`Remote Pub: ${p.identity}, hasTrack: ${!!pub.track}, isSubscribed: ${pub.isSubscribed}`);
+        if (pub.isSubscribed && pub.track) {
+          attachVideo(p.identity, pub.track);
+        }
+      });
+    }
   });
   
   // Local participant
-  if (room.localParticipant) {
-     room.localParticipant.videoTrackPublications.forEach(pub => {
+  if (room.localParticipant && room.localParticipant.videoTracks) {
+     room.localParticipant.videoTracks.forEach(pub => {
         console.log(`Local Pub: currentUser, hasTrack: ${!!pub.track}`);
         if (pub.track) attachVideo(currentUser, pub.track);
      });
