@@ -11,6 +11,11 @@ const generalUserList = document.getElementById('generalUserList');
 const roomsContainer = document.getElementById('roomsContainer');
 const gritoBtn = document.getElementById('gritoBtn');
 const ringSound = document.getElementById('ringSound');
+const deafenBtn = document.getElementById('deafenBtn');
+const deafenLabel = document.getElementById('deafenLabel');
+const deafenIconBox = document.getElementById('deafenIconBox');
+const deafenIconOn = document.getElementById('deafenIconOn');
+const deafenIconOff = document.getElementById('deafenIconOff');
 const audioElements = document.getElementById('audioElements');
 const audioVisualizer = document.querySelector('.audio-visualizer');
 const toastNotification = document.getElementById('toastNotification');
@@ -18,7 +23,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v41';
+const LOCAL_VERSION = 'v43';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -150,6 +155,34 @@ muteBtn.addEventListener('click', async () => {
   }
 });
 
+// Deafen Logic (Universal Mute Incoming)
+let isDeafened = false;
+if (deafenBtn) {
+  deafenBtn.addEventListener('click', () => {
+    isDeafened = !isDeafened;
+    
+    if (isDeafened) {
+      deafenIconBox.classList.remove('bg-green-500', 'shadow-green-500/20');
+      deafenIconBox.classList.add('bg-gray-600', 'shadow-gray-600/20');
+      deafenIconOn.classList.add('hidden');
+      deafenIconOff.classList.remove('hidden');
+      deafenLabel.innerText = "MUTEADO UNIVERSAL";
+      deafenLabel.classList.remove('text-white');
+      deafenLabel.classList.add('text-gray-500', 'line-through');
+    } else {
+      deafenIconBox.classList.add('bg-green-500', 'shadow-green-500/20');
+      deafenIconBox.classList.remove('bg-gray-600', 'shadow-gray-600/20');
+      deafenIconOn.classList.remove('hidden');
+      deafenIconOff.classList.add('hidden');
+      deafenLabel.innerText = "ALTAVOZ ON";
+      deafenLabel.classList.add('text-white');
+      deafenLabel.classList.remove('text-gray-500', 'line-through');
+    }
+    
+    updateAllVolumes();
+  });
+}
+
 // 1. Initial State: Connect on Username
 joinBtn.addEventListener('click', async () => {
   const val = usernameInput.value.trim();
@@ -196,6 +229,19 @@ joinBtn.addEventListener('click', async () => {
     workspace.classList.add('opacity-100', 'translate-y-0');
   }, 700);
   
+  // iOS Safari Audio Unlock
+  try {
+    ringSound.volume = 0;
+    const playPromise = ringSound.play();
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        ringSound.pause();
+        ringSound.currentTime = 0;
+        ringSound.volume = 1;
+      }).catch(e => console.warn("Ring audio unlock prevented:", e));
+    }
+  } catch(e) {}
+
   // Create room synchronously to capture User Gesture for Safari Audio
   room = new Room({
     adaptiveStream: true,
@@ -596,14 +642,23 @@ function updateAllVolumes() {
       const speakerInPrivate = (speakerGroup && speakerGroup.length > 1);
       
       let shouldHear = true;
-      if (gritoSender) {
-        shouldHear = true; 
-      } else if (speakerInPrivate) {
-        shouldHear = speakerGroup.includes(myId);
-      } else {
-        shouldHear = !meInPrivate;
+      if (speakerInPrivate && !meInPrivate) shouldHear = false;
+      if (!speakerInPrivate && meInPrivate) shouldHear = false;
+      if (speakerInPrivate && meInPrivate) {
+        shouldHear = JSON.stringify([...speakerGroup].sort()) === JSON.stringify([...activeWhisperGroup].sort());
       }
-
+      
+      // Override: Grito bypasses rooms
+      if (gritoSender) {
+         if (p.identity === gritoSender) shouldHear = true;
+         else shouldHear = false;
+      }
+      
+      // Override: Universal Deafen
+      if (isDeafened) {
+        shouldHear = false;
+      }
+      
       p.audioTrackPublications.forEach(pub => {
         // Enforce subscription state
         if (pub.isSubscribed !== shouldHear) {
