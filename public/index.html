@@ -128,7 +128,7 @@
   <div id="loginOverlay" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#08080a] p-6 transition-all duration-700">
     <div class="glass rounded-[32px] p-8 w-full max-w-lg text-center border-white/10 shadow-2xl overflow-y-auto max-h-full">
       <h1 class="text-5xl font-black mb-2 tracking-tighter italic">OFI<span class="text-purple-500">VOZ</span></h1>
-      <p class="text-[10px] text-gray-500 font-bold mb-6 tracking-widest">VERSIÓN v45</p>
+      <p class="text-[10px] text-gray-500 font-bold mb-6 tracking-widest">VERSIÓN v46</p>
       <p class="text-gray-400 mb-6 font-light italic">Tu oficina remota sin fricciones.</p>
       
       <div class="space-y-6">
@@ -163,7 +163,7 @@
       <div class="flex items-center gap-3">
         <div class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]"></div>
         <span class="text-[10px] font-black tracking-[0.2em] uppercase text-gray-400">En Linea</span>
-        <span class="text-[11px] font-bold text-gray-600 bg-white/5 px-2 py-0.5 rounded-full ml-1">v45</span>
+        <span class="text-[11px] font-bold text-gray-600 bg-white/5 px-2 py-0.5 rounded-full ml-1">v46</span>
       </div>
       <div class="flex items-center gap-4">
         <button id="pipBtn" class="hidden text-[9px] font-black uppercase text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg border border-purple-500/20 transition-all cursor-pointer">
@@ -232,11 +232,11 @@
         </div>
 
         <!-- ACCIONES -->
-        <div class="grid grid-cols-2 gap-3">
-          <div class="glass rounded-3xl p-4 md:p-6 flex items-center justify-center border-white/10">
-            <button id="deafenBtn" class="w-14 h-14 md:w-16 md:h-16 bg-green-500 rounded-2xl flex items-center justify-center shadow-lg transition-all active:scale-90 hover:brightness-110">
-              <svg id="deafenIconOn" class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-              <svg id="deafenIconOff" class="w-7 h-7 text-white hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <div class="grid grid-cols-3 gap-3">
+          <div class="glass rounded-3xl p-3 md:p-4 flex items-center justify-center border-white/10">
+            <button id="deafenBtn" class="w-12 h-12 md:w-16 md:h-16 bg-green-500 rounded-2xl flex items-center justify-center shadow-lg transition-all active:scale-90 hover:brightness-110">
+              <svg id="deafenIconOn" class="w-6 h-6 md:w-7 md:h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+              <svg id="deafenIconOff" class="w-6 h-6 md:w-7 md:h-7 text-white hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                 <line x1="23" y1="9" x2="17" y2="15"></line>
                 <line x1="17" y1="9" x2="23" y2="15"></line>
@@ -244,9 +244,21 @@
             </button>
           </div>
 
-          <div class="glass rounded-3xl p-4 md:p-6 flex items-center justify-center border-white/10">
-            <button id="gritoBtn" class="w-14 h-14 md:w-16 md:h-16 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg transition-all cursor-pointer hover:brightness-110">
-              <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <div class="glass rounded-3xl p-3 md:p-4 flex items-center justify-center border-white/10">
+            <button id="camBtn" class="w-12 h-12 md:w-16 md:h-16 bg-gray-600 rounded-2xl flex items-center justify-center shadow-lg transition-all active:scale-90 hover:brightness-110">
+              <svg id="camIconOn" class="w-6 h-6 md:w-7 md:h-7 text-white hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+              </svg>
+              <svg id="camIconOff" class="w-6 h-6 md:w-7 md:h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2.17l.98-1.76c.14-.25.4-.41.69-.41h4.32c.29 0 .55.16.69.41l.98 1.76h2.17c1.1 0 2 .9 2 2v2M22 6l-6 4.6V15l6 4.6V6z"></path>
+                <line x1="2" y1="2" x2="22" y2="22"></line>
+              </svg>
+            </button>
+          </div>
+
+          <div class="glass rounded-3xl p-3 md:p-4 flex items-center justify-center border-white/10">
+            <button id="gritoBtn" class="w-12 h-12 md:w-16 md:h-16 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg transition-all cursor-pointer hover:brightness-110">
+              <svg class="w-6 h-6 md:w-7 md:h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4.5 17h15M12 17V7M6.5 17c0-3 2.5-10 5.5-10s5.5 7 5.5 10"></path>
                 <path d="M12 2v2M5 5l1.5 1.5M19 5l-1.5 1.5M4 11h2M18 11h2"></path>
                 <circle cx="12" cy="17" r="1.5" fill="currentColor"></circle>
@@ -296,9 +308,20 @@
     </div>
   </div>
 
+  <!-- MAXIMIZE VIDEO MODAL -->
+  <div id="videoModal" class="fixed inset-0 z-[300] bg-[#040405] hidden transition-all flex flex-col">
+    <div class="flex items-center justify-between p-6">
+      <h2 class="text-2xl font-black italic">MODO <span class="text-purple-500">TEATRO</span></h2>
+      <button id="closeVideoModal" class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all font-black">✕</button>
+    </div>
+    <div id="videoModalGrid" class="flex-1 p-6 grid gap-6 auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 place-items-center">
+      <!-- Full screen videos will go here -->
+    </div>
+  </div>
+
   <audio id="ringSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
   <div id="audioElements" style="visibility:hidden; height:0; width:0; overflow:hidden;"></div>
 
-  <script type="module" src="renderer.js?v=45"></script>
+  <script type="module" src="renderer.js?v=46"></script>
 </body>
 </html>
