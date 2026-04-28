@@ -23,7 +23,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v46';
+const LOCAL_VERSION = 'v47';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -172,16 +172,20 @@ if (camBtn) {
       camIconOn.classList.remove('hidden');
       camIconOff.classList.add('hidden');
       await room.localParticipant.setCameraEnabled(true);
-      renderUsers();
-      if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
+      setTimeout(() => {
+        renderUsers();
+        if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
+      }, 500); // safety delay for track attach
     } else {
       camBtn.classList.remove('bg-blue-500');
       camBtn.classList.add('bg-gray-600');
       camIconOn.classList.add('hidden');
       camIconOff.classList.remove('hidden');
       await room.localParticipant.setCameraEnabled(false);
-      renderUsers();
-      if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
+      setTimeout(() => {
+        renderUsers();
+        if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
+      }, 500);
     }
   });
 }
@@ -526,6 +530,20 @@ async function connectLiveKit() {
   
   room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
     if (track.kind === Track.Kind.Video) {
+      renderUsers();
+      if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
+    }
+  });
+
+  room.on(RoomEvent.LocalTrackPublished, (pub, participant) => {
+    if (pub.kind === Track.Kind.Video) {
+      renderUsers();
+      if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
+    }
+  });
+
+  room.on(RoomEvent.LocalTrackUnpublished, (pub, participant) => {
+    if (pub.kind === Track.Kind.Video) {
       renderUsers();
       if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
     }
