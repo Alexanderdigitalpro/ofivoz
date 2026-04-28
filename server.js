@@ -11,13 +11,13 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const CURRENT_VERSION = 'v38'; // Auto-update to v38
+const CURRENT_VERSION = 'v41'; // Auto-update to v41
 
 const USER_DB = {
-  "Alex": "1",
-  "Day": "2",
-  "Lau": "3",
-  "Thir": "4"
+  "Alex": "1234",
+  "Day": "1234",
+  "Lau": "1234",
+  "Thir": "1234"
 };
 
 app.use(cors());

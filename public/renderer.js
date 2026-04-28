@@ -18,7 +18,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v38';
+const LOCAL_VERSION = 'v41';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -400,6 +400,9 @@ function toggleWhisper(targetUser) {
       activeWhisperGroup = [];
     }
     
+    // THE MISSING LINK: Send room creation intent to the server!
+    safeWsSend({ type: 'whisper_sync', from: currentUser, group: activeWhisperGroup });
+    
     if (room && room.localParticipant) {
         room.localParticipant.setMetadata(JSON.stringify(activeWhisperGroup));
     }
@@ -426,6 +429,10 @@ window.requestJoin = requestJoin;
 window.leaveSubRoom = function() {
   try {
     activeWhisperGroup = [];
+    
+    // Send leave intent to server!
+    safeWsSend({ type: 'whisper_sync', from: currentUser, group: [] });
+    
     if (room && room.localParticipant) {
         room.localParticipant.setMetadata(JSON.stringify([]));
     }
@@ -636,19 +643,15 @@ function updateAllVolumes() {
 
 // Rendering UI
 function renderUsers() {
+  const allUsers = [currentUser, ...usersState];
   const userIntentions = {};
   
-  if (room) {
-    // Collect everyone currently in the audio session
-    const allParticipants = [room.localParticipant, ...Array.from(room.remoteParticipants.values())];
-    
-    allParticipants.forEach(p => {
-        // ALWAYS use the server's userGroups state!
-        let grp = userGroups[p.identity];
-        if (!grp || grp.length <= 1) grp = [p.identity];
-        userIntentions[p.identity] = grp;
-    });
-  }
+  // Use WebSocket state for visual grouping (Absolute Truth)
+  allUsers.forEach(u => {
+      let grp = userGroups[u];
+      if (!grp || grp.length <= 1) grp = [u];
+      userIntentions[u] = grp;
+  });
 
   const roomsMap = {};
   Object.values(userIntentions).forEach(grp => {
@@ -662,11 +665,11 @@ function renderUsers() {
   const usersInSomeRoom = new Set(activeRooms.flat());
 
   // UI Tracing helper
-  if (activeWhisperGroup.length > 0) {
+  if (activeWhisperGroup && activeWhisperGroup.length > 0) {
     currentUserDisplay.innerText = `${currentUser}`;
     currentUserDisplay.innerHTML += `<br><span class="text-[9px] text-purple-400">🔒 Sala Privada</span>`;
   } else {
-    currentUserDisplay.innerText = currentUserDisplay.innerText = `${currentUser}`;
+    currentUserDisplay.innerText = `${currentUser}`;
     currentUserDisplay.innerHTML += `<br><span class="text-[9px] text-gray-500">Oficina General</span>`;
   }
 
@@ -678,8 +681,6 @@ function renderUsers() {
   const userIcon = `<svg class="w-6 h-6 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
 
   // Render General Office Users
-  const allUsers = [currentUser, ...usersState];
-  
   allUsers.forEach(user => {
     if (!usersInSomeRoom.has(user)) {
       const isMe = user === currentUser;
