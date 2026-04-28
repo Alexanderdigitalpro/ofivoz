@@ -23,7 +23,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v50';
+const LOCAL_VERSION = 'v45';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -154,41 +154,6 @@ muteBtn.addEventListener('click', async () => {
     bars.forEach(b => b.classList.add('bar-active'));
   }
 });
-
-// Camera Toggle Logic
-let isCamOn = false;
-const camBtn = document.getElementById('camBtn');
-const camIconOn = document.getElementById('camIconOn');
-const camIconOff = document.getElementById('camIconOff');
-
-if (camBtn) {
-  camBtn.addEventListener('click', async () => {
-    if (!room || !room.localParticipant) return;
-    
-    isCamOn = !isCamOn;
-    if (isCamOn) {
-      camBtn.classList.remove('bg-gray-600');
-      camBtn.classList.add('bg-blue-500');
-      camIconOn.classList.remove('hidden');
-      camIconOff.classList.add('hidden');
-      await room.localParticipant.setCameraEnabled(true);
-      setTimeout(() => {
-        renderUsers();
-        if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
-      }, 500); // safety delay for track attach
-    } else {
-      camBtn.classList.remove('bg-blue-500');
-      camBtn.classList.add('bg-gray-600');
-      camIconOn.classList.add('hidden');
-      camIconOff.classList.remove('hidden');
-      await room.localParticipant.setCameraEnabled(false);
-      setTimeout(() => {
-        renderUsers();
-        if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
-      }, 500);
-    }
-  });
-}
 
 // -----------------------------------------
 // Picture in Picture (PiP) Logic
@@ -518,35 +483,6 @@ async function connectLiveKit() {
   });
   room.on(RoomEvent.ParticipantDisconnected, () => {
     renderUsers();
-    if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
-  });
-
-  room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-    if (track.kind === Track.Kind.Video) {
-      renderUsers();
-      if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
-    }
-  });
-  
-  room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
-    if (track.kind === Track.Kind.Video) {
-      renderUsers();
-      if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
-    }
-  });
-
-  room.on(RoomEvent.LocalTrackPublished, (pub, participant) => {
-    if (pub.kind === Track.Kind.Video) {
-      renderUsers();
-      if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
-    }
-  });
-
-  room.on(RoomEvent.LocalTrackUnpublished, (pub, participant) => {
-    if (pub.kind === Track.Kind.Video) {
-      renderUsers();
-      if (!document.getElementById('videoModal').classList.contains('hidden')) renderVideoModal();
-    }
   });
 }
 
@@ -702,7 +638,7 @@ function adjustVolume(identity) {
     const p = (identity === currentUser) ? room.localParticipant : room.remoteParticipants.get(identity);
     if (p) {
       // Hardware track
-      const pub = Array.from(p.audioTracks.values())[0];
+      const pub = Array.from(p.audioTrackPublications.values())[0];
       if (pub && pub.audioTrack) track = pub.audioTrack;
       
       // Get room state from metadata (SOURCE OF TRUTH)
@@ -796,12 +732,11 @@ function updateAllVolumes() {
         shouldHear = false;
       }
       
-      if (p.audioTracks) {
-        p.audioTracks.forEach(pub => {
-          // Enforce subscription state
-          if (pub.isSubscribed !== shouldHear) {
-            pub.setSubscribed(shouldHear);
-          }
+      p.audioTrackPublications.forEach(pub => {
+        // Enforce subscription state
+        if (pub.isSubscribed !== shouldHear) {
+          pub.setSubscribed(shouldHear);
+        }
         
         const track = pub.audioTrack;
         if (track) {
@@ -828,7 +763,6 @@ function updateAllVolumes() {
           }
         }
       });
-      }
     });
   } catch (err) {
     console.error("Global Audio Sync Error:", err);
@@ -911,10 +845,8 @@ function renderUsers() {
     
     // Header
     let actionsHtml = '';
-    let maximizeHtml = '';
     if (isMyRoom) {
        actionsHtml = `<button class="w-full py-2.5 mt-4 bg-red-500/10 border border-red-500/30 rounded-xl text-[9px] font-black tracking-widest text-red-400 uppercase hover:bg-red-500/20 transition-all" onclick="leaveSubRoom()">Salir de Sala</button>`;
-       maximizeHtml = `<button class="absolute top-4 right-4 w-6 h-6 bg-white/10 rounded-md flex items-center justify-center hover:bg-white/20 transition-all z-10" onclick="maximizeRoom()" title="Modo Teatro"><svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg></button>`;
     } else {
        const grpStr = encodeURIComponent(JSON.stringify(roomMem));
        actionsHtml = `<button class="w-full py-2.5 mt-4 bg-purple-500/10 border border-purple-500/30 rounded-xl text-[9px] font-black tracking-widest text-purple-400 uppercase hover:bg-purple-500/20 transition-all" onclick="requestJoin('${grpStr}')">✋ Unirme a Sala</button>`;
@@ -931,9 +863,8 @@ function renderUsers() {
 
       return `
       <div class="has-tooltip relative">
-        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-indigo-600 border-2 border-black flex items-center justify-center cursor-pointer ${ringHtml} overflow-hidden relative">
-          <span class="text-[9px] font-bold z-0">${displayName.substring(0,2).toUpperCase()}</span>
-          <div id="video-container-${u}" class="absolute inset-0 w-full h-full z-10"></div>
+        <div class="w-7 h-7 rounded-full bg-indigo-600 border-2 border-black flex items-center justify-center cursor-pointer ${ringHtml}">
+          <span class="text-[9px] font-bold">${displayName.substring(0,2).toUpperCase()}</span>
         </div>
         <div class="tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-28 glass rounded-xl p-2 text-center border-purple-500/40 z-50">
           <p class="text-[9px] font-bold mb-1">${displayName} ${badgeHtml}</p>
@@ -944,7 +875,6 @@ function renderUsers() {
     }).join('');
 
     roomEl.innerHTML = `
-      ${maximizeHtml}
       <div class="flex items-center justify-between">
         <div class="flex flex-col group relative">
           <div class="flex items-center gap-2">
@@ -952,7 +882,7 @@ function renderUsers() {
           </div>
           <span class="text-[9px] text-gray-400 italic">${isMyRoom ? 'Tu Sala' : 'Ocupada'} • ${roomMem.length} miem.</span>
         </div>
-        <div class="flex -space-x-2 mr-2">
+        <div class="flex -space-x-2">
           ${avatarsHtml}
         </div>
       </div>
@@ -960,113 +890,6 @@ function renderUsers() {
     `;
     roomsContainer.appendChild(roomEl);
   });
-  
-  // Also create a container for my own video in the top header
-  const myHeaderAvatar = document.getElementById('userAvatarContainer');
-  if (myHeaderAvatar) {
-     myHeaderAvatar.innerHTML = `<span class="z-0">Yo</span><div id="video-container-${currentUser}" class="absolute inset-0 w-full h-full z-10"></div>`;
-     myHeaderAvatar.classList.add('relative');
-  }
-
-  // Attach videos after rendering
-  attachAllVideos();
-}
-
-// -----------------------------------------
-// Video Logic
-// -----------------------------------------
-function attachAllVideos() {
-  if (!room) return;
-  console.log("Corriendo attachAllVideos...");
-  
-  // Remote participants
-  room.remoteParticipants.forEach(p => {
-    if (p.videoTracks) {
-      p.videoTracks.forEach(pub => {
-        console.log(`Remote Pub: ${p.identity}, hasTrack: ${!!pub.track}, isSubscribed: ${pub.isSubscribed}`);
-        if (pub.isSubscribed && pub.track) {
-          attachVideo(p.identity, pub.track);
-        }
-      });
-    }
-  });
-  
-  // Local participant
-  if (room.localParticipant && room.localParticipant.videoTracks) {
-     room.localParticipant.videoTracks.forEach(pub => {
-        console.log(`Local Pub: currentUser, hasTrack: ${!!pub.track}`);
-        if (pub.track) attachVideo(currentUser, pub.track);
-     });
-  }
-}
-
-function attachVideo(identity, track) {
-  console.log(`Intentando adjuntar video para: ${identity}`);
-  // Main UI
-  const container = document.getElementById(`video-container-${identity}`);
-  if (container) {
-    if (!container.querySelector('video')) {
-       const videoEl = document.createElement('video');
-       videoEl.className = 'w-full h-full object-cover';
-       videoEl.autoplay = true;
-       videoEl.playsInline = true;
-       videoEl.muted = true; // Local videos and remote usually better handled by LiveKit, but explicitly muted here just in case. Audio is handled by audio tracks.
-       container.appendChild(videoEl);
-       track.attach(videoEl);
-       console.log(`✅ Video adjuntado a UI principal para: ${identity}`);
-    }
-  } else {
-    console.warn(`❌ No se encontró el contenedor principal para: ${identity}`);
-  }
-  
-  // Modal UI
-  const modalContainer = document.getElementById(`modal-video-${identity}`);
-  if (modalContainer) {
-    if (!modalContainer.querySelector('video')) {
-       const videoEl2 = document.createElement('video');
-       videoEl2.className = 'w-full h-full object-cover rounded-full border-4 border-purple-500 shadow-2xl';
-       videoEl2.autoplay = true;
-       videoEl2.playsInline = true;
-       videoEl2.muted = true;
-       modalContainer.appendChild(videoEl2);
-       track.attach(videoEl2);
-       console.log(`✅ Video adjuntado a Modal para: ${identity}`);
-    }
-  }
-}
-
-// -----------------------------------------
-// Modal Teatro Logic
-// -----------------------------------------
-window.maximizeRoom = function() {
-  const videoModal = document.getElementById('videoModal');
-  videoModal.classList.remove('hidden');
-  renderVideoModal();
-}
-
-document.getElementById('closeVideoModal').addEventListener('click', () => {
-  document.getElementById('videoModal').classList.add('hidden');
-});
-
-window.renderVideoModal = function() {
-  const grid = document.getElementById('videoModalGrid');
-  grid.innerHTML = '';
-  
-  if (activeWhisperGroup.length > 0) {
-    activeWhisperGroup.forEach(u => {
-      const col = document.createElement('div');
-      col.className = 'flex flex-col items-center justify-center w-full max-w-sm aspect-square relative';
-      col.innerHTML = `
-        <div id="modal-video-${u}" class="w-full h-full rounded-full bg-white/5 flex items-center justify-center overflow-hidden border border-white/10">
-           <span class="text-4xl font-black text-white/20">${u.substring(0,2).toUpperCase()}</span>
-        </div>
-        <span class="absolute bottom-6 bg-black/60 px-6 py-2 rounded-full font-bold text-sm text-white backdrop-blur shadow-xl border border-white/10">${u}</span>
-      `;
-      grid.appendChild(col);
-    });
-    
-    attachAllVideos();
-  }
 }
 window.triggerRing = triggerRing;
 window.toggleWhisper = toggleWhisper;
