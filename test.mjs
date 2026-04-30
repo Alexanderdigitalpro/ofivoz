@@ -23,7 +23,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v55';
+const LOCAL_VERSION = 'v54';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -628,7 +628,7 @@ window.leaveSubRoom = function() {
 };
 
 // Grito
-async function startGrito() {
+gritoBtn.addEventListener('mousedown', async () => {
   if (isMuted) safeWsSend({ type: 'mic_on' }); // Temp active mic
   safeWsSend({ type: 'grito_start', from: currentUser });
   await smartConnectLiveKit();
@@ -646,36 +646,32 @@ async function startGrito() {
   const bars = document.querySelectorAll('.visualizer-bar');
   bars.forEach(b => b.classList.add('bar-active'));
 
-  try { await room.localParticipant.setMicrophoneEnabled(true); } catch(e){} // Force Unmute Local
+  room.localParticipant.setMicrophoneEnabled(true); // Force Unmute Local
   
   updateAllVolumes();
   renderUsers();
 }
 
-async function stopGrito() {
-  if (isMuted) safeWsSend({ type: 'mic_off' });
+function stopGrito() {
   safeWsSend({ type: 'grito_stop', from: currentUser });
   
   gritoSender = null;
   const micPanel = document.getElementById('micPanel');
   if(micPanel) micPanel.classList.remove('grito-active');
   
-  if (isMuted) {
+  // FIX: Restore the user's manual mute preference after releasing the Grito!
+  if (!isMuted) {
+     // Si no estaba muteado, dejamos las barras. Si estaba muteado, las quitamos.
+  } else {
       const bars = document.querySelectorAll('.visualizer-bar');
       bars.forEach(b => b.classList.remove('bar-active'));
   }
 
   if (room && room.localParticipant) {
-    try { await room.localParticipant.setMicrophoneEnabled(!isMuted); } catch(e){}
+    room.localParticipant.setMicrophoneEnabled(!isMuted);
   }
   
   updateAllVolumes();
-  
-  // Smart Disconnect check
-  if (isMuted) {
-      // Small delay to let WS sync
-      setTimeout(smartDisconnectLiveKit, 500);
-  }
 }
 
 // Listen to Keyboard Shortcut from the Browser (e.g. Ctrl + Shift + Space)

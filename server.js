@@ -11,7 +11,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const CURRENT_VERSION = 'v54'; // Fix visualizer crash
+const CURRENT_VERSION = 'v55'; // Fix syntax error
 
 const USER_DB = {
   "Alex": "1234",
