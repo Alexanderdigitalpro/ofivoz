@@ -23,7 +23,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v51';
+const LOCAL_VERSION = 'v54';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -120,16 +120,25 @@ let activeWhisperGroup = []; // Array of participants currently in a private sub
 let userGroups = {}; // Dictionary tracking what group each remote participant claims to be in
 let gritoSender = null; // null if passive, or holds the username of the person shouting
 
+let isLiveKitConnected = false;
+let isConnectingLiveKit = false;
+
 // Mute logic
 let isMuted = true; // START MUTED BY DEFAULT
 muteBtn.addEventListener('click', async () => {
   if (!room) return;
   isMuted = !isMuted;
   
-  try {
-    await room.localParticipant.setMicrophoneEnabled(!isMuted);
-    await room.startAudio(); // Safety net gesture catch
-  } catch(e) {}
+  if (!isMuted) {
+     safeWsSend({ type: 'mic_on' });
+     await smartConnectLiveKit();
+     try { await room.localParticipant.setMicrophoneEnabled(true); await room.startAudio(); } catch(e){}
+  } else {
+     safeWsSend({ type: 'mic_off' });
+     if (isLiveKitConnected) {
+        try { await room.localParticipant.setMicrophoneEnabled(false); } catch(e){}
+     }
+  }
   
   const label = document.getElementById('micLabel');
   const bars = document.querySelectorAll('.visualizer-bar');
@@ -322,13 +331,9 @@ joinBtn.addEventListener('click', async () => {
     audioCaptureDefaults: { autoGainControl: true, echoCancellation: true, noiseSuppression: true }
   });
   room.startAudio().catch(e => console.log('Audio autoplay prevented'));
+  initLiveKitListeners(); // Set up events only once
 
   await connectSignaling();
-  try {
-    await connectLiveKit();
-  } catch (error) {
-    console.error("LiveKit Falló:", error);
-  }
 });
 
 // Allow Enter key to join
@@ -404,6 +409,17 @@ async function connectSignaling() {
          }
       }
 
+      // Lazy Connect logic
+      const activeMicsCount = data.activeMics ? data.activeMics.length : 0;
+      const someoneIsTalking = activeMicsCount > 0;
+      
+      if (someoneIsTalking || !isMuted || gritoSender) {
+          smartConnectLiveKit();
+      } else {
+          // If no one is talking and I'm muted, disconnect to save money
+          smartDisconnectLiveKit();
+      }
+
       updateAllVolumes();
       renderUsers();
     } else if (data.type === 'ring') {
@@ -429,7 +445,29 @@ async function connectSignaling() {
 }
 
 // 3. LiveKit Audio Engine
-async function connectLiveKit() {
+async function smartConnectLiveKit() {
+   if (isLiveKitConnected || isConnectingLiveKit) return;
+   isConnectingLiveKit = true;
+   try {
+     await connectLiveKit();
+     isLiveKitConnected = true;
+     // Re-apply microphone state based on UI
+     await room.localParticipant.setMicrophoneEnabled(!isMuted);
+   } catch (e) {
+     console.error("Lazy LiveKit Error:", e);
+   } finally {
+     isConnectingLiveKit = false;
+   }
+}
+
+async function smartDisconnectLiveKit() {
+   if (!isLiveKitConnected) return;
+   await room.disconnect();
+   isLiveKitConnected = false;
+   console.log("Desconectado de LiveKit para ahorrar minutos.");
+}
+
+function initLiveKitListeners() {
   // Room is already instantiated in click handler
   room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
     if (track.kind === Track.Kind.Audio) {
@@ -451,7 +489,9 @@ async function connectLiveKit() {
       if (el) el.remove();
     }
   });
+}
 
+async function connectLiveKit() {
   // Get Token from backend
   const res = await fetch('/getToken', {
     method: 'POST',
@@ -480,7 +520,9 @@ async function connectLiveKit() {
   });
   
   // Visualizer FX
-  audioVisualizer.classList.add('visualizer-active');
+  if (typeof audioVisualizer !== 'undefined' && audioVisualizer) {
+      audioVisualizer.classList.add('visualizer-active');
+  }
 
   // Background Sanity Check: Run every 2 seconds to ensure isolation is enforced
   setInterval(() => {
@@ -586,8 +628,11 @@ window.leaveSubRoom = function() {
 };
 
 // Grito
-function startGrito() {
+gritoBtn.addEventListener('mousedown', async () => {
+  if (isMuted) safeWsSend({ type: 'mic_on' }); // Temp active mic
   safeWsSend({ type: 'grito_start', from: currentUser });
+  await smartConnectLiveKit();
+  try { await room.localParticipant.setMicrophoneEnabled(true); } catch(e){}
   
   gritoSender = currentUser;
   activeWhisperGroup = [];

@@ -11,7 +11,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const CURRENT_VERSION = 'v51'; // Auto-update to v51
+const CURRENT_VERSION = 'v54'; // Fix visualizer crash
 
 const USER_DB = {
   "Alex": "1234",
@@ -57,6 +57,7 @@ app.post('/login', (req, res) => {
 // WebSocket Server for custom signaling
 const clients = new Map(); // ws -> participantName
 let globalUserGroups = {}; // PERSISTENCE: Store who is with whom on the server
+let activeMics = new Set(); // Track who has their mic on
 
 wss.on('connection', (ws) => {
   ws.on('message', (message) => {
@@ -65,6 +66,7 @@ wss.on('connection', (ws) => {
       
       if (data.type === 'register') {
         clients.set(ws, data.name);
+        activeMics.delete(data.name); // Reset mic state on login
         broadcastState();
       } else if (data.type === 'ping') {
         if (ws.readyState === WebSocket.OPEN) {
@@ -92,6 +94,12 @@ wss.on('connection', (ws) => {
              delete globalUserGroups[data.from];
           }
           broadcastState(); // Tell everyone IMMEDIATELY about the new state!
+        } else if (data.type === 'mic_on') {
+          activeMics.add(clients.get(ws));
+          broadcastState();
+        } else if (data.type === 'mic_off') {
+          activeMics.delete(clients.get(ws));
+          broadcastState();
         } else if (data.type === 'grito_start') {
           globalUserGroups = {}; // Broadcast shout clears all rooms
           broadcastState();
@@ -118,6 +126,7 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     const name = clients.get(ws);
     if (name) {
+       activeMics.delete(name);
        const oldGroup = globalUserGroups[name] || [];
        oldGroup.forEach(m => {
            if (globalUserGroups[m]) {
@@ -133,14 +142,14 @@ wss.on('connection', (ws) => {
 });
 
 function broadcastState() {
-  const users = Array.from(clients.values());
   for (const c of clients.keys()) {
     if (c.readyState === WebSocket.OPEN) {
       c.send(JSON.stringify({ 
         type: 'presence', 
-        users,
+        users: Array.from(clients.values()),
         userGroups: globalUserGroups,
-        version: CURRENT_VERSION // Send version to clients
+        activeMics: Array.from(activeMics),
+        version: CURRENT_VERSION
       }));
     }
   }
