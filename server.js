@@ -11,7 +11,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const CURRENT_VERSION = 'v55'; // Fix syntax error
+const CURRENT_VERSION = 'v56'; // UX Improvements
 
 const USER_DB = {
   "Alex": "1234",

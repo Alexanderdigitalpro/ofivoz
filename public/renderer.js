@@ -640,6 +640,12 @@ async function startGrito() {
       room.localParticipant.setMetadata(JSON.stringify([]));
   }
   
+  // UI Button Feedback
+  gritoBtn.classList.remove('bg-red-600');
+  gritoBtn.classList.add('bg-red-500', 'scale-95', 'shadow-[0_0_30px_#ef4444]');
+  const svg = gritoBtn.querySelector('svg');
+  if(svg) svg.classList.add('animate-pulse');
+  
   const micPanel = document.getElementById('micPanel');
   if(micPanel) micPanel.classList.add('grito-active');
   
@@ -659,6 +665,12 @@ async function stopGrito() {
   gritoSender = null;
   const micPanel = document.getElementById('micPanel');
   if(micPanel) micPanel.classList.remove('grito-active');
+  
+  // Restore UI Button Feedback
+  gritoBtn.classList.add('bg-red-600');
+  gritoBtn.classList.remove('bg-red-500', 'scale-95', 'shadow-[0_0_30px_#ef4444]');
+  const svg = gritoBtn.querySelector('svg');
+  if(svg) svg.classList.remove('animate-pulse');
   
   if (isMuted) {
       const bars = document.querySelectorAll('.visualizer-bar');
