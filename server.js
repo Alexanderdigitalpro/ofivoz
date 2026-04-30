@@ -11,7 +11,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const CURRENT_VERSION = 'v45'; // Auto-update to v45
+const CURRENT_VERSION = 'v51'; // Auto-update to v51
 
 const USER_DB = {
   "Alex": "1234",
@@ -66,6 +66,10 @@ wss.on('connection', (ws) => {
       if (data.type === 'register') {
         clients.set(ws, data.name);
         broadcastState();
+      } else if (data.type === 'ping') {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        }
       } else if (data.type === 'ring') {
         // Send a ring (Timbre) to a specific target
         const targetWs = [...clients.entries()].find(([c, name]) => name === data.target)?.[0];

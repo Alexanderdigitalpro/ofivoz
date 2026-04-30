@@ -23,7 +23,7 @@ const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
 const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v45';
+const LOCAL_VERSION = 'v51';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -348,6 +348,9 @@ function safeWsSend(obj) {
   }
 }
 
+let wsReconnectTimer = null;
+let wsHeartbeatTimer = null;
+
 async function connectSignaling() {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${wsProtocol}//${window.location.host}`;
@@ -355,10 +358,30 @@ async function connectSignaling() {
   
   ws.onopen = () => {
     safeWsSend({ type: 'register', name: currentUser });
+    if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+    if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
+    
+    // Heartbeat every 25 seconds
+    wsHeartbeatTimer = setInterval(() => {
+        safeWsSend({ type: 'ping' });
+    }, 25000);
+  };
+
+  ws.onclose = () => {
+    console.warn("WebSocket cerrado. Reintentando en 3s...");
+    if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
+    clearTimeout(wsReconnectTimer);
+    wsReconnectTimer = setTimeout(connectSignaling, 3000);
+  };
+
+  ws.onerror = () => {
+    ws.close(); // Force onclose to trigger reconnection
   };
 
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
+    if (data.type === 'pong') return; // Ignore pong responses
+    
     if (data.type === 'presence') {
       if (data.version && data.version !== LOCAL_VERSION) {
         if (updateModal) updateModal.classList.remove('hidden');
