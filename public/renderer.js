@@ -21,9 +21,8 @@ const audioVisualizer = document.querySelector('.audio-visualizer');
 const toastNotification = document.getElementById('toastNotification');
 const toastMessage = document.getElementById('toastMessage');
 const appBody = document.getElementById('app');
-const updateModal = document.getElementById('updateModal');
 
-const LOCAL_VERSION = 'v55';
+const LOCAL_VERSION = 'v57';
 
 // --- Avatar & Color Logic ---
 let selectedAvatarType = 'male';
@@ -388,11 +387,6 @@ async function connectSignaling() {
     if (data.type === 'pong') return; // Ignore pong responses
     
     if (data.type === 'presence') {
-      if (data.version && data.version !== LOCAL_VERSION) {
-        if (updateModal) updateModal.classList.remove('hidden');
-        return; 
-      }
-
       usersState = data.users.filter(u => u !== currentUser);
       userGroups = data.userGroups || {};
       

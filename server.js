@@ -11,7 +11,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const CURRENT_VERSION = 'v56'; // UX Improvements
+const CURRENT_VERSION = 'v57'; // Remove annoying update loop
 
 const USER_DB = {
   "Alex": "1234",
